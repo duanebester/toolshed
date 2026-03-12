@@ -1,0 +1,2329 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Agent Toolbox</title>
+    <meta
+      name="description"
+      content="A decentralized registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #0a0a0f;
+        --bg-raised: #12121a;
+        --bg-card: #181824;
+        --bg-code: #0d0d15;
+        --border: #1e1e2e;
+        --border-bright: #2a2a3e;
+        --text: #e2e2ea;
+        --text-dim: #8888a0;
+        --text-muted: #5a5a72;
+        --accent: #6c5ce7;
+        --accent-bright: #a29bfe;
+        --accent-glow: rgba(108, 92, 231, 0.15);
+        --green: #00cec9;
+        --green-dim: rgba(0, 206, 201, 0.12);
+        --orange: #fdcb6e;
+        --orange-dim: rgba(253, 203, 110, 0.12);
+        --red: #ff7675;
+        --red-dim: rgba(255, 118, 117, 0.12);
+        --pink: #fd79a8;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 20px;
+        --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, monospace;
+      }
+      html {
+        scroll-behavior: smooth;
+        font-size: 16px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      body {
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.7;
+        overflow-x: hidden;
+      }
+      ::selection {
+        background: var(--accent);
+        color: #fff;
+      }
+      a {
+        color: var(--accent-bright);
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      a:hover {
+        color: #fff;
+      }
+
+      /* ── NAV ── */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background: rgba(10, 10, 15, 0.8);
+        border-bottom: 1px solid var(--border);
+      }
+      nav .nav-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+      }
+      nav .logo {
+        font-weight: 800;
+        font-size: 1.1rem;
+        letter-spacing: -0.03em;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      nav .logo .icon {
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, var(--accent), var(--green));
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        font-size: 0.8rem;
+        color: #fff;
+      }
+      nav .nav-links {
+        display: flex;
+        gap: 1.75rem;
+        align-items: center;
+      }
+      nav .nav-links a {
+        color: var(--text-dim);
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+      nav .nav-links a:hover {
+        color: #fff;
+      }
+      .nav-cta {
+        background: var(--accent) !important;
+        color: #fff !important;
+        padding: 0.45rem 1.1rem;
+        border-radius: var(--radius-sm);
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        transition: all 0.2s !important;
+      }
+      .nav-cta:hover {
+        background: var(--accent-bright) !important;
+        transform: translateY(-1px);
+      }
+      .menu-toggle {
+        display: none;
+        background: none;
+        border: none;
+        color: var(--text);
+        cursor: pointer;
+        padding: 0.5rem;
+      }
+
+      /* ── HERO ── */
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 8rem 2rem 6rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(
+          ellipse at 50% 30%,
+          rgba(108, 92, 231, 0.08) 0%,
+          transparent 50%
+        );
+        pointer-events: none;
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(
+          ellipse at 50% 80%,
+          rgba(0, 206, 201, 0.04) 0%,
+          transparent 50%
+        );
+        pointer-events: none;
+      }
+      .hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 860px;
+      }
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--accent-glow);
+        border: 1px solid rgba(108, 92, 231, 0.25);
+        color: var(--accent-bright);
+        padding: 0.4rem 1rem;
+        border-radius: 100px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 2rem;
+        letter-spacing: 0.02em;
+      }
+      .hero h1 {
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(
+          135deg,
+          #fff 0%,
+          var(--accent-bright) 50%,
+          var(--green) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .hero .subtitle {
+        font-size: clamp(1rem, 2vw, 1.25rem);
+        color: var(--text-dim);
+        max-width: 680px;
+        margin: 0 auto 2.5rem;
+        line-height: 1.7;
+        font-weight: 400;
+      }
+      .hero-cta-group {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.8rem 1.8rem;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: none;
+        font-family: var(--font-sans);
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: var(--accent-bright);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(108, 92, 231, 0.3);
+        color: #fff;
+      }
+      .btn-outline {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border-bright);
+      }
+      .btn-outline:hover {
+        border-color: var(--accent);
+        color: var(--accent-bright);
+        transform: translateY(-2px);
+      }
+      .hero-visual {
+        margin-top: 4rem;
+        position: relative;
+      }
+      .hero-code {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-align: left;
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        line-height: 1.8;
+        max-width: 560px;
+        margin: 0 auto;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-code::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent),
+          transparent
+        );
+      }
+      .hero-code .dots {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+      }
+      .hero-code .dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--border-bright);
+      }
+      .hero-code .key {
+        color: var(--accent-bright);
+      }
+      .hero-code .str {
+        color: var(--green);
+      }
+      .hero-code .comment {
+        color: var(--text-muted);
+      }
+
+      /* ── SECTIONS ── */
+      section {
+        padding: 6rem 2rem;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .container-wide {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .section-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--accent-bright);
+        margin-bottom: 1rem;
+      }
+      .section-label::before {
+        content: "";
+        width: 2rem;
+        height: 1px;
+        background: var(--accent);
+      }
+      h2 {
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+        margin-bottom: 1.5rem;
+      }
+      h3 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 1rem;
+        margin-top: 2.5rem;
+      }
+      p {
+        margin-bottom: 1.25rem;
+        color: var(--text-dim);
+      }
+      p strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .highlight {
+        color: var(--accent-bright);
+        font-weight: 600;
+      }
+
+      /* ── PROBLEM BULLETS ── */
+      .problem-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.25rem;
+        margin: 2rem 0;
+      }
+      .problem-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        transition: all 0.25s;
+      }
+      .problem-card:hover {
+        border-color: var(--border-bright);
+        transform: translateY(-2px);
+      }
+      .problem-card .icon-wrap {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-sm);
+        display: grid;
+        place-items: center;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+      }
+      .problem-card h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: var(--text);
+      }
+      .problem-card p {
+        font-size: 0.88rem;
+        margin: 0;
+        color: var(--text-dim);
+        line-height: 1.6;
+      }
+
+      /* ── INSPIRATION CARDS ── */
+      .insp-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 2rem;
+        margin: 1.5rem 0;
+      }
+      .insp-card h4 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .insp-card ul {
+        list-style: none;
+        padding: 0;
+      }
+      .insp-card ul li {
+        padding: 0.4rem 0 0.4rem 1.5rem;
+        position: relative;
+        color: var(--text-dim);
+        font-size: 0.92rem;
+      }
+      .insp-card ul li::before {
+        content: "\2192";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+      }
+      .insp-tag {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.15rem 0.55rem;
+        border-radius: 100px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── CODE BLOCKS ── */
+      .code-block {
+        background: var(--bg-code);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow-x: auto;
+        margin: 1.5rem 0;
+        position: relative;
+      }
+      .code-block .code-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6rem 1.2rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+      }
+      .code-block pre {
+        padding: 1.2rem 1.5rem;
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        line-height: 1.75;
+        color: var(--text-dim);
+        white-space: pre;
+        overflow-x: auto;
+      }
+      .code-block pre .k {
+        color: var(--accent-bright);
+      }
+      .code-block pre .s {
+        color: var(--green);
+      }
+      .code-block pre .n {
+        color: var(--orange);
+      }
+      .code-block pre .c {
+        color: var(--text-muted);
+        font-style: italic;
+      }
+      .code-block pre .p {
+        color: var(--text-dim);
+      }
+      .code-block pre .t {
+        color: var(--pink);
+      }
+
+      /* ── TABLES ── */
+      .table-wrap {
+        overflow-x: auto;
+        margin: 1.5rem 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+      }
+      thead {
+        background: var(--bg-card);
+      }
+      th {
+        padding: 0.85rem 1.2rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-bottom: 1px solid var(--border);
+      }
+      td {
+        padding: 0.85rem 1.2rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-dim);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      tr:hover td {
+        background: rgba(108, 92, 231, 0.03);
+      }
+
+      /* ── ARCH DIAGRAM ── */
+      .arch-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin: 2rem 0;
+      }
+      .arch-layer {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.75rem;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s;
+      }
+      .arch-layer:hover {
+        border-color: var(--border-bright);
+      }
+      .arch-layer::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 4px;
+      }
+      .arch-layer.l1::before {
+        background: var(--accent);
+      }
+      .arch-layer.l2::before {
+        background: var(--green);
+      }
+      .arch-layer.l3::before {
+        background: var(--orange);
+      }
+      .arch-layer .layer-num {
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin-bottom: 0.5rem;
+      }
+      .arch-layer.l1 .layer-num {
+        color: var(--accent-bright);
+      }
+      .arch-layer.l2 .layer-num {
+        color: var(--green);
+      }
+      .arch-layer.l3 .layer-num {
+        color: var(--orange);
+      }
+      .arch-layer h4 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+      }
+      .arch-layer .layer-desc {
+        color: var(--text-dim);
+        font-size: 0.88rem;
+        margin: 0;
+      }
+      .arch-layer .layer-bullets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+      .arch-layer .layer-bullets span {
+        font-size: 0.78rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 100px;
+        font-weight: 500;
+      }
+      .arch-layer.l1 .layer-bullets span {
+        background: var(--accent-glow);
+        color: var(--accent-bright);
+      }
+      .arch-layer.l2 .layer-bullets span {
+        background: var(--green-dim);
+        color: var(--green);
+      }
+      .arch-layer.l3 .layer-bullets span {
+        background: var(--orange-dim);
+        color: var(--orange);
+      }
+      .arch-connector {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 1.2rem;
+        line-height: 1;
+      }
+
+      /* ── FLOW ── */
+      .flow-steps {
+        counter-reset: flow;
+        margin: 2rem 0;
+      }
+      .flow-step {
+        display: flex;
+        gap: 1.25rem;
+        padding: 1rem 0;
+        align-items: flex-start;
+      }
+      .flow-step::before {
+        counter-increment: flow;
+        content: counter(flow);
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--accent-glow);
+        border: 1px solid rgba(108, 92, 231, 0.3);
+        display: grid;
+        place-items: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--accent-bright);
+      }
+      .flow-step p {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 0.92rem;
+        padding-top: 0.3rem;
+      }
+      .flow-step code {
+        background: var(--bg-code);
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        color: var(--green);
+      }
+
+      /* ── TIER CARDS ── */
+      .tier-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+      }
+      .tier-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .tier-card.featured {
+        border-color: var(--accent);
+      }
+      .tier-card.featured::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent), var(--green));
+      }
+      .tier-num {
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--accent-bright);
+        margin-bottom: 0.5rem;
+      }
+      .tier-card h4 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+      }
+      .tier-card dl {
+        display: grid;
+        gap: 0.5rem;
+      }
+      .tier-card dt {
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+      .tier-card dd {
+        font-size: 0.88rem;
+        color: var(--text-dim);
+        margin-bottom: 0.5rem;
+      }
+
+      /* ── NOT LIST ── */
+      .not-list {
+        list-style: none;
+        margin: 1.5rem 0;
+      }
+      .not-list li {
+        padding: 0.85rem 0 0.85rem 2rem;
+        position: relative;
+        color: var(--text-dim);
+        font-size: 0.92rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .not-list li:last-child {
+        border-bottom: none;
+      }
+      .not-list li::before {
+        content: "\2715";
+        position: absolute;
+        left: 0;
+        color: var(--red);
+        font-weight: 700;
+        font-size: 0.85rem;
+        top: 0.9rem;
+      }
+      .not-list li strong {
+        color: var(--text);
+      }
+
+      /* ── ANTI-GAMING TABLE ── */
+      .attack-label {
+        color: var(--red);
+        font-weight: 600;
+      }
+
+      /* ── LOOP DIAGRAM ── */
+      .loop-diagram {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2.5rem;
+        margin: 2rem 0;
+        text-align: center;
+      }
+      .loop-diagram .loop-nodes {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+      .loop-node {
+        background: var(--bg);
+        border: 1px solid var(--border-bright);
+        border-radius: var(--radius);
+        padding: 1rem 1.25rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-dim);
+        min-width: 180px;
+        position: relative;
+      }
+      .loop-node .node-arrow {
+        position: absolute;
+        right: -1.1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--accent);
+        font-size: 1.1rem;
+      }
+      .loop-diagram .loop-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--accent-bright);
+        margin-bottom: 0.5rem;
+      }
+
+      /* ── RECORD TYPES ── */
+      .record-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+      .record-item {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+      }
+      .record-item h5 {
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+        color: var(--text);
+      }
+      .record-item .record-path {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--accent-bright);
+        margin-bottom: 0.5rem;
+      }
+      .record-item p {
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      /* ── PAYMENT METHODS ── */
+      .payment-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 1rem 0;
+      }
+      .payment-pill {
+        padding: 0.4rem 0.85rem;
+        border-radius: 100px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        border: 1px solid var(--border);
+      }
+      .payment-pill.active {
+        background: var(--green-dim);
+        color: var(--green);
+        border-color: rgba(0, 206, 201, 0.25);
+      }
+      .payment-pill.future {
+        background: var(--bg-card);
+        color: var(--text-muted);
+        border-color: var(--border);
+      }
+
+      /* ── DISCOVERY ALGS ── */
+      .disc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.75rem;
+        margin: 1.5rem 0;
+      }
+      .disc-item {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 1rem;
+        font-size: 0.85rem;
+      }
+      .disc-item strong {
+        color: var(--text);
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.82rem;
+      }
+      .disc-item span {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+      }
+
+      /* ── DIVIDER ── */
+      .divider {
+        border: none;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--border-bright),
+          transparent
+        );
+        margin: 3rem 0;
+      }
+
+      /* ── FOOTER ── */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 3rem 2rem;
+        text-align: center;
+      }
+      footer p {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        margin: 0;
+      }
+      footer a {
+        color: var(--accent-bright);
+      }
+      .ref-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 0.5rem;
+        max-width: 900px;
+        margin: 1.5rem auto;
+        text-align: left;
+      }
+      .ref-grid a {
+        display: block;
+        padding: 0.5rem 0.75rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        transition: all 0.2s;
+      }
+      .ref-grid a:hover {
+        background: var(--bg-card);
+        color: var(--accent-bright);
+      }
+
+      /* ── QUOTE ── */
+      blockquote {
+        border-left: 3px solid var(--accent);
+        padding: 0.75rem 1.25rem;
+        margin: 1.5rem 0;
+        background: var(--accent-glow);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      }
+      blockquote p {
+        color: var(--text);
+        font-style: italic;
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      /* ── SCROLL ANIMATIONS ── */
+      .reveal {
+        opacity: 0;
+        transform: translateY(30px);
+        transition:
+          opacity 0.6s ease,
+          transform 0.6s ease;
+      }
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* ── MOBILE ── */
+      @media (max-width: 768px) {
+        section {
+          padding: 4rem 1.25rem;
+        }
+        nav .nav-links {
+          display: none;
+          position: absolute;
+          top: 64px;
+          left: 0;
+          right: 0;
+          background: var(--bg-raised);
+          border-bottom: 1px solid var(--border);
+          flex-direction: column;
+          padding: 1rem 2rem;
+          gap: 1rem;
+        }
+        nav .nav-links.open {
+          display: flex;
+        }
+        .menu-toggle {
+          display: block;
+        }
+        .hero {
+          padding: 7rem 1.25rem 4rem;
+          min-height: auto;
+        }
+        .hero-code {
+          font-size: 0.72rem;
+        }
+        .problem-grid {
+          grid-template-columns: 1fr;
+        }
+        .tier-grid {
+          grid-template-columns: 1fr;
+        }
+        .arch-layer {
+          padding: 1.25rem;
+        }
+        .flow-step {
+          gap: 0.85rem;
+        }
+        .loop-diagram .loop-nodes {
+          flex-direction: column;
+          align-items: center;
+        }
+        .loop-node .node-arrow {
+          display: none;
+        }
+        .record-grid {
+          grid-template-columns: 1fr;
+        }
+        .ref-grid {
+          grid-template-columns: 1fr;
+        }
+        .disc-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- NAV -->
+    <nav>
+      <div class="nav-inner">
+        <div class="logo">
+          <div class="icon">&#9889;</div>
+          <span>Agent Toolbox</span>
+        </div>
+        <button
+          class="menu-toggle"
+          onclick="
+            document.querySelector('.nav-links').classList.toggle('open')
+          "
+          aria-label="Toggle menu"
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M3 12h18M3 6h18M3 18h18" />
+          </svg>
+        </button>
+        <div class="nav-links">
+          <a href="#problem">Problem</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#records">Records</a>
+          <a href="#payment">Payment</a>
+          <a href="#reputation">Reputation</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#references" class="nav-cta">References &#8599;</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-content">
+        <div class="hero-badge">
+          &#128295; Decentralized Tool Registry for AI Agents
+        </div>
+        <h1>The Agent Toolbox</h1>
+        <p class="subtitle">
+          A decentralized registry where companies list tools, agents discover
+          and pay for them, and reputation emerges from verified usage &mdash;
+          backed by <strong>Dolt DB</strong>, inspired by
+          <strong>AT Protocol's</strong> data model.
+        </p>
+        <div class="hero-cta-group">
+          <a href="#problem" class="btn btn-primary">Read the Thesis &#8595;</a>
+          <a href="#how-it-works" class="btn btn-outline">How It Works</a>
+        </div>
+        <div class="hero-visual">
+          <div class="hero-code">
+            <div class="dots"><span></span><span></span><span></span></div>
+            <span class="comment"
+              >// One config entry. Your agent gains access to every tool.</span
+            ><br />
+            {<br />
+            &nbsp;&nbsp;<span class="key">"mcpServers"</span>: {<br />
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"toolbox"</span>: {<br />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key"
+              >"command"</span
+            >: <span class="str">"npx"</span>,<br />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"args"</span>:
+            [<span class="str">"@agent-toolbox/mcp-server"</span>],<br />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"env"</span>:
+            { <span class="key">"STRIPE_CUSTOMER_ID"</span>:
+            <span class="str">"cus_abc123"</span> }<br />
+            &nbsp;&nbsp;&nbsp;&nbsp;}<br />
+            &nbsp;&nbsp;}<br />
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- THE PROBLEM -->
+    <section id="problem">
+      <div class="container reveal">
+        <div class="section-label">The Problem</div>
+        <h2>Agents are capable.<br />The infrastructure isn't.</h2>
+        <p>
+          AI agents are increasingly capable, but when they need specialized
+          tools &mdash; fraud detection, geospatial analysis, compliance
+          checking &mdash; they hit a wall.
+        </p>
+
+        <div class="problem-grid">
+          <div class="problem-card">
+            <div class="icon-wrap" style="background: var(--accent-glow)">
+              &#128269;
+            </div>
+            <h4>No Discovery</h4>
+            <p>
+              Tools are hardcoded or manually configured. There's no Yellow
+              Pages for agent capabilities.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div class="icon-wrap" style="background: var(--green-dim)">
+              &#128179;
+            </div>
+            <h4>No Payment</h4>
+            <p>
+              There's no machine-native way to pay for a tool call. It's all API
+              keys, billing dashboards, and enterprise contracts.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div class="icon-wrap" style="background: var(--orange-dim)">
+              &#11088;
+            </div>
+            <h4>No Reputation</h4>
+            <p>
+              An agent can't know which tool provider is reliable, fast, or
+              accurate without a human pre-vetting everything.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div class="icon-wrap" style="background: var(--red-dim)">
+              &#128268;
+            </div>
+            <h4>No Portability</h4>
+            <p>
+              Switch your MCP server or API provider and you're rewiring
+              everything from scratch.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="background: rgba(253, 121, 168, 0.12)"
+            >
+              &#128203;
+            </div>
+            <h4>No Audit Trail</h4>
+            <p>
+              When an agent makes a decision based on a tool's output, there's
+              no versioned, reproducible record of what happened.
+            </p>
+          </div>
+        </div>
+
+        <blockquote>
+          <p>
+            <strong>SaaS pricing models assume a human buyer.</strong> Per-seat
+            licenses, annual contracts, "schedule a demo" funnels &mdash; the
+            entire commercial infrastructure was designed for humans. An agent
+            can't sit through a sales call.
+          </p>
+        </blockquote>
+
+        <p>
+          The protocol debate (MCP vs. skills vs. REST vs. gRPC) is a
+          distraction. The real gap is:
+          <strong class="highlight"
+            >how do agents find, trust, pay for, and audit tool usage across
+            organizational boundaries?</strong
+          >
+        </p>
+      </div>
+    </section>
+
+    <!-- INSPIRATIONS -->
+    <section style="background: var(--bg-raised)">
+      <div class="container reveal">
+        <div class="section-label">Inspirations</div>
+        <h2>Built on the shoulders of three big ideas</h2>
+
+        <div class="insp-card">
+          <h4>
+            <span
+              class="insp-tag"
+              style="
+                background: var(--accent-glow);
+                color: var(--accent-bright);
+              "
+              >Data Model</span
+            >
+            AT Protocol / "A Social Filesystem"
+          </h4>
+          <p style="color: var(--text-dim); font-size: 0.92rem">
+            Dan Abramov's article reframes AT Protocol as a distributed
+            filesystem for social computing. The Toolbox borrows its design
+            patterns &mdash; but doesn't depend on Bluesky's infrastructure.
+          </p>
+          <ul>
+            <li>
+              <strong>Everything is a record</strong> &mdash; JSON records in
+              repos, organized into namespaced collections
+            </li>
+            <li>
+              <strong>Lexicons</strong> &mdash; machine-readable schemas for
+              record formats, published by anyone
+            </li>
+            <li>
+              <strong>DIDs</strong> &mdash; decentralized identifiers for
+              portable, self-sovereign identity
+            </li>
+            <li>
+              <strong>"Third party is first party"</strong> &mdash; anyone
+              builds discovery, reputation, or alt registries over the same data
+            </li>
+          </ul>
+          <blockquote>
+            <p>
+              "Our memories, our thoughts, our designs should outlive the
+              software we used to create them." Replace "software" with "agent
+              frameworks" and the same principle applies to tools.
+            </p>
+          </blockquote>
+        </div>
+
+        <div class="insp-card">
+          <h4>
+            <span
+              class="insp-tag"
+              style="background: var(--green-dim); color: var(--green)"
+              >Architecture</span
+            >
+            Gas Town (Steve Yegge)
+          </h4>
+          <p style="color: var(--text-dim); font-size: 0.92rem">
+            A multi-agent orchestration system for coordinating 20-30+ Claude
+            Code agents working simultaneously.
+          </p>
+          <ul>
+            <li>
+              <strong>Dolt as the backbone</strong> &mdash; every piece of agent
+              state lives in Dolt with full commit history
+            </li>
+            <li>
+              <strong>Mol Mall (planned)</strong> &mdash; a marketplace for
+              reusable agent workflow templates, like npm for agents
+            </li>
+            <li>
+              <strong>Federation</strong> &mdash; multiple instances reference
+              each other via Dolt remotes
+            </li>
+            <li>
+              <strong>Agent identity</strong> &mdash; every operation is
+              attributed with actor information and provenance
+            </li>
+          </ul>
+        </div>
+
+        <div class="insp-card">
+          <h4>
+            <span
+              class="insp-tag"
+              style="background: var(--orange-dim); color: var(--orange)"
+              >Storage</span
+            >
+            Dolt DB
+          </h4>
+          <p style="color: var(--text-dim); font-size: 0.92rem">
+            A SQL database you can fork, clone, branch, merge, push, and pull
+            &mdash; just like Git. MySQL-compatible with full version history.
+          </p>
+
+          <div class="table-wrap" style="margin-top: 1rem">
+            <table>
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th>Application in Toolbox</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>dolt_history_*</code></td>
+                  <td>
+                    Full row-level history of every tool registration and
+                    invocation
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>AS OF</code> queries</td>
+                  <td>
+                    "What tools were available at time T? What schema was
+                    version N?"
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>dolt_diff()</code></td>
+                  <td>"What changed between schema versions?"</td>
+                </tr>
+                <tr>
+                  <td>Branch &amp; merge</td>
+                  <td>
+                    A/B test new pricing, preview schema changes before
+                    publishing
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>dolt clone / push</code></td>
+                  <td>
+                    Distribute the registry, federate across organizations
+                  </td>
+                </tr>
+                <tr>
+                  <td>Signed commits</td>
+                  <td>Tamper-evident audit trail</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- THE ON-RAMP -->
+    <section>
+      <div class="container reveal">
+        <div class="section-label">The On-Ramp</div>
+        <h2>It's just another MCP server</h2>
+        <p>
+          The Toolbox doesn't change the pattern developers already use &mdash;
+          it <em>is</em> that pattern. Add one config entry and your agent has
+          access to every tool in the registry. No new paradigm, no behavioral
+          shift.
+        </p>
+
+        <h3>The Meta-Tools</h3>
+        <p>The Toolbox exposes a small set of meta-tools:</p>
+        <div
+          class="problem-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))"
+        >
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--accent-bright);
+              "
+            >
+              toolbox_search
+            </h4>
+            <p>Find tools by capability, price, latency, reputation</p>
+          </div>
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--green);
+              "
+            >
+              toolbox_invoke
+            </h4>
+            <p>
+              Call a tool &mdash; handles payment, schema validation, logging
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--orange);
+              "
+            >
+              toolbox_reputation
+            </h4>
+            <p>Check reliability, quality scores, SLA compliance</p>
+          </div>
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--pink);
+              "
+            >
+              toolbox_review
+            </h4>
+            <p>Submit a proof-of-use upvote after using a tool</p>
+          </div>
+        </div>
+
+        <h3>The Flow</h3>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <p>
+              Agent has a task:
+              <code>"analyze this transaction for fraud"</code>
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Agent doesn't have a fraud tool &mdash; calls
+              <code
+                >toolbox_search({ capabilities: ["fraud"], max_price: 0.01
+                })</code
+              >
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>Toolbox returns ranked results from the Dolt registry</p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Agent picks one, calls
+              <code
+                >toolbox_invoke({ tool: "fraud-detection-v3@acme.com", input:
+                {...} })</code
+              >
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Toolbox gateway handles Stripe payment, calls the endpoint,
+              validates response
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Agent gets the result, uses it &mdash; then calls
+              <code>toolbox_review</code> with quality signal
+            </p>
+          </div>
+        </div>
+
+        <blockquote>
+          <p>
+            An agent that already has a hardcoded fraud tool will never search
+            for fraud &mdash; it'll just use what it has. But the first time it
+            needs something it <em>doesn't</em> have, the Toolbox is right
+            there. <strong>Discovery happens organically at the edges.</strong>
+          </p>
+        </blockquote>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section id="architecture" style="background: var(--bg-raised)">
+      <div class="container reveal">
+        <div class="section-label">Architecture</div>
+        <h2>Three layers. Clean separation.</h2>
+
+        <div class="arch-stack">
+          <div class="arch-layer l1">
+            <div class="layer-num">Layer 1 &mdash; Registry</div>
+            <h4>What exists, who provides it, what's the contract</h4>
+            <p class="layer-desc">
+              Dolt-backed. Tool records with schema, pricing, endpoint, payment
+              methods, and SLA. Company identity verified via domain ownership
+              or DIDs. Capability search and discovery.
+            </p>
+            <div class="layer-bullets">
+              <span>Tool Records</span><span>Schemas</span><span>Pricing</span
+              ><span>Discovery</span><span>Identity</span>
+            </div>
+          </div>
+          <div class="arch-connector">&#8597;</div>
+          <div class="arch-layer l2">
+            <div class="layer-num">Layer 2 &mdash; Gateway</div>
+            <h4>Invoke the tool, handle payment, verify response</h4>
+            <p class="layer-desc">
+              Thin routing + auth + metering. Protocol translation (MCP, REST,
+              gRPC &mdash; doesn't care). Payment negotiation, usage metering
+              via Stripe, and response validation against schema.
+            </p>
+            <div class="layer-bullets">
+              <span>Protocol Translation</span><span>Payment</span
+              ><span>Metering</span><span>Validation</span>
+            </div>
+          </div>
+          <div class="arch-connector">&#8597;</div>
+          <div class="arch-layer l3">
+            <div class="layer-num">Layer 3 &mdash; Ledger</div>
+            <h4>Who called what, when, what did it cost</h4>
+            <p class="layer-desc">
+              Dolt-backed audit trail. Every invocation is a commit.
+              Time-travel, diff, reproduce any agent decision. Settlement and
+              reconciliation records.
+            </p>
+            <div class="layer-bullets">
+              <span>Invocation Logs</span><span>Time Travel</span
+              ><span>Diffs</span><span>Settlement</span>
+            </div>
+          </div>
+        </div>
+
+        <h3>Protocol Agnosticism</h3>
+        <p>
+          The MCP-vs-skills debate is a false choice. The invocation method is
+          just a field in the tool record:
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">invocation field</div>
+          <pre><span class="p">{</span>
+  <span class="k">"protocol"</span>: <span class="s">"mcp"</span>,       <span class="c">// or "rest", "grpc", "graphql", "skill"</span>
+  <span class="k">"endpoint"</span>: <span class="s">"https://tools.acme.com/mcp"</span>,
+  <span class="k">"tool_name"</span>: <span class="s">"fraud_check"</span>
+<span class="p">}</span></pre>
+        </div>
+
+        <p>
+          It's like how DNS doesn't care what protocol you speak once you've
+          resolved the address. The
+          <strong class="highlight"
+            >schema is the contract; the protocol is a transport detail.</strong
+          >
+        </p>
+      </div>
+    </section>
+
+    <!-- EVERYTHING IS RECORDS -->
+    <section id="records">
+      <div class="container reveal">
+        <div class="section-label">Data Model</div>
+        <h2>Everything is records</h2>
+        <p>
+          Every entity in the system is a <strong>record</strong> &mdash; a JSON
+          document with a schema. No special servers for payment, reputation, or
+          discovery. It's all records in the Dolt registry, with materialized
+          views computed by whoever needs them.
+        </p>
+
+        <h3>The Tool Record</h3>
+        <p>
+          A company registers a tool by submitting a JSON record to the Dolt
+          registry:
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            com.toolbox.tool/fraud-detection-v3 @ acme.com
+          </div>
+          <pre><span class="p">{</span>
+  <span class="k">"name"</span>: <span class="s">"Fraud Detection"</span>,
+  <span class="k">"version"</span>: <span class="s">"3.1.0"</span>,
+  <span class="k">"description"</span>: <span class="s">"Real-time transaction fraud scoring with ML"</span>,
+
+  <span class="k">"provider"</span>: <span class="p">{</span>
+    <span class="k">"domain"</span>: <span class="s">"acme.com"</span>,
+    <span class="k">"did"</span>: <span class="s">"did:plc:acme-corp"</span>
+  <span class="p">}</span>,
+
+  <span class="k">"schema"</span>: <span class="p">{</span>
+    <span class="k">"input"</span>: <span class="p">{</span>
+      <span class="k">"transaction_id"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"string"</span> <span class="p">}</span>,
+      <span class="k">"amount"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"number"</span> <span class="p">}</span>,
+      <span class="k">"merchant_category"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"string"</span> <span class="p">}</span>
+    <span class="p">}</span>,
+    <span class="k">"output"</span>: <span class="p">{</span>
+      <span class="k">"risk_score"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"number"</span>, <span class="k">"min"</span>: <span class="n">0</span>, <span class="k">"max"</span>: <span class="n">1</span> <span class="p">}</span>,
+      <span class="k">"flags"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"array"</span>, <span class="k">"items"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"string"</span> <span class="p">}</span> <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>,
+
+  <span class="k">"pricing"</span>: <span class="p">{</span> <span class="k">"model"</span>: <span class="s">"per_call"</span>, <span class="k">"price"</span>: <span class="n">0.005</span>, <span class="k">"currency"</span>: <span class="s">"usd"</span> <span class="p">}</span>,
+  <span class="k">"capabilities"</span>: [<span class="s">"fraud"</span>, <span class="s">"ml"</span>, <span class="s">"financial"</span>, <span class="s">"real-time"</span>],
+  <span class="k">"createdAt"</span>: <span class="s">"2026-03-01T00:00:00Z"</span>
+<span class="p">}</span></pre>
+        </div>
+
+        <h3>The Upvote Record (Proof of Use)</h3>
+        <p>
+          When an agent uses a tool and gets good results, it creates an upvote
+          &mdash; a quality signal with
+          <strong
+            >proof that the agent actually paid for and used the tool</strong
+          >:
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            com.toolbox.tool.upvote/5kqw3x @ agent-company-xyz.com
+          </div>
+          <pre><span class="p">{</span>
+  <span class="k">"subject"</span>: <span class="s">"com.toolbox.tool/fraud-detection-v3@acme.com"</span>,
+  <span class="k">"proof"</span>: <span class="p">{</span>
+    <span class="k">"payment_method"</span>: <span class="s">"stripe"</span>,
+    <span class="k">"stripe_invoice_id"</span>: <span class="s">"in_1abc123def456"</span>,
+    <span class="k">"invocation_hash"</span>: <span class="s">"sha256:deadbeef..."</span>,
+    <span class="k">"ledger_commit"</span>: <span class="s">"dolt:76qerj11u38il8rb..."</span>
+  <span class="p">}</span>,
+  <span class="k">"evaluation"</span>: <span class="p">{</span>
+    <span class="k">"quality"</span>: <span class="n">5</span>,
+    <span class="k">"latency_met_sla"</span>: <span class="n">true</span>,
+    <span class="k">"schema_valid"</span>: <span class="n">true</span>,
+    <span class="k">"useful"</span>: <span class="n">true</span>
+  <span class="p">}</span>
+<span class="p">}</span></pre>
+        </div>
+
+        <h3>Summary of Record Types</h3>
+        <div class="record-grid">
+          <div class="record-item">
+            <h5>Tool Registration</h5>
+            <div class="record-path">com.toolbox.tool/</div>
+            <p>"Here's my tool, schema, pricing, and how to pay"</p>
+          </div>
+          <div class="record-item">
+            <h5>Schema / Lexicon</h5>
+            <div class="record-path">com.toolbox.lexicon/</div>
+            <p>Machine-readable input/output contract</p>
+          </div>
+          <div class="record-item">
+            <h5>Invocation Log</h5>
+            <div class="record-path">com.toolbox.tool.invocation/</div>
+            <p>Record of each call: input hash, output hash, timing</p>
+          </div>
+          <div class="record-item">
+            <h5>Upvote</h5>
+            <div class="record-path">com.toolbox.tool.upvote/</div>
+            <p>Quality signal with proof-of-use</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAYMENT -->
+    <section id="payment" style="background: var(--bg-raised)">
+      <div class="container reveal">
+        <div class="section-label">Payment</div>
+        <h2>Payment is just a field on the record</h2>
+        <p>
+          No special payment subsystem. The provider declares "send cash this
+          way" as part of their tool registration. The agent reads the payment
+          methods, picks one it supports, pays, and calls the tool.
+        </p>
+
+        <h3>Payment Methods</h3>
+        <div class="payment-pills">
+          <span class="payment-pill active">Stripe Metered (MVP)</span>
+          <span class="payment-pill active">Free / Open Source</span>
+          <span class="payment-pill future">&#9889; Lightning (L402)</span>
+          <span class="payment-pill future">&#129477; Cashu Ecash</span>
+          <span class="payment-pill future">Anyone Can Extend</span>
+        </div>
+
+        <div class="code-block" style="margin-top: 1.5rem">
+          <div class="code-header">
+            payment field &mdash; extensible via lexicons
+          </div>
+          <pre><span class="c">// MVP: Stripe metered billing</span>
+<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"stripe"</span>: <span class="p">{</span> <span class="k">"payment_link"</span>: <span class="s">"https://buy.stripe.com/..."</span>, <span class="k">"meter_id"</span>: <span class="s">"mtr_abc123"</span> <span class="p">}</span> <span class="p">}</span>
+
+<span class="c">// Open source / community tools</span>
+<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"free"</span>: <span class="p">{}</span> <span class="p">}</span></pre>
+        </div>
+
+        <h3>Extensible via Lexicons</h3>
+        <p>
+          New payment methods don't require protocol changes. Anyone publishes a
+          new lexicon:
+        </p>
+        <div class="code-block">
+          <div class="code-header">payment lexicon namespace examples</div>
+          <pre><span class="t">com.toolbox.defs</span><span class="c">#paymentStripe</span>       <span class="c">&larr; MVP</span>
+<span class="t">com.toolbox.defs</span><span class="c">#paymentFree</span>         <span class="c">&larr; open source</span>
+<span class="t">com.toolbox.defs</span><span class="c">#paymentLightning</span>    <span class="c">&larr; future: micropayments</span>
+<span class="t">com.toolbox.defs</span><span class="c">#paymentCashu</span>        <span class="c">&larr; future: bearer tokens</span>
+<span class="t">io.fedi.defs</span><span class="c">#paymentFedimint</span>         <span class="c">&larr; community-defined</span>
+<span class="t">xyz.newrail.defs</span><span class="c">#paymentWhatever</span>     <span class="c">&larr; anyone can extend</span></pre>
+        </div>
+        <p>
+          Validate on read. If a tool lists a payment method the agent doesn't
+          understand, the agent skips it and picks one it does. If it can't pay
+          at all, it moves on to the next tool.
+        </p>
+      </div>
+    </section>
+
+    <!-- REPUTATION -->
+    <section id="reputation">
+      <div class="container reveal">
+        <div class="section-label">Reputation</div>
+        <h2>Distributed. Derived. Ungameable.</h2>
+        <p>
+          Reputation is not stored on the tool. It's
+          <strong>derived</strong> &mdash; a materialized view computed from all
+          upvote records in the Dolt registry. Nobody owns the score. Nobody can
+          inflate it without paying for real usage. Anybody can compute it.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">reputation computation (pseudocode)</div>
+          <pre><span class="c">-- REPUTATION for acme's fraud-detection-v3:</span>
+
+<span class="k">SELECT</span> <span class="t">AVG</span>(quality_score), <span class="t">COUNT</span>(*), <span class="t">COUNT</span>(<span class="k">DISTINCT</span> caller_domain)
+<span class="k">FROM</span> upvotes
+<span class="k">WHERE</span> tool_id = <span class="s">'com.toolbox.tool/fraud-detection-v3@acme.com'</span>
+  <span class="k">AND</span> proof_is_valid = <span class="n">true</span>    <span class="c">-- payment receipt checks out</span>
+  <span class="k">AND</span> invocation_exists = <span class="n">true</span> <span class="c">-- hash found in ledger</span>
+
+<span class="c">-- Nobody owns this score.</span>
+<span class="c">-- Nobody can inflate it without paying for real usage.</span>
+<span class="c">-- Anybody can compute it (clone the registry, run the query).</span></pre>
+        </div>
+
+        <h3>Anti-Gaming Properties</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Attack</th>
+                <th>Why It Fails</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="attack-label">Fake upvotes</span> (sybil)</td>
+                <td>
+                  Proof-of-use required. No valid payment receipt = unverifiable
+                  upvote.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="attack-label">Self-upvoting</span></td>
+                <td>
+                  Provider pays themselves real money.
+                  <code>caller_did == provider_did</code> &mdash; trivial to
+                  filter.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="attack-label">Wash trading</span></td>
+                <td>
+                  Detectable via diversity-of-upvoters weighting. PageRank-style
+                  graph analysis.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="attack-label">Buying upvotes</span></td>
+                <td>
+                  Requires real usage and real payment &mdash; the tool still
+                  has to deliver quality.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="attack-label">Deleting bad reviews</span></td>
+                <td>
+                  Impossible. Upvotes live in the reviewer's repo, not the
+                  provider's.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Discovery Algorithms</h3>
+        <p>
+          Because the registry is a Dolt database anyone can clone,
+          <strong>anyone can build discovery algorithms</strong> over the data:
+        </p>
+        <div class="disc-grid">
+          <div class="disc-item">
+            <strong>&#128293; Trending Tools</strong
+            ><span>Most upvotes this week</span>
+          </div>
+          <div class="disc-item">
+            <strong>&#128737;&#65039; Most Reliable</strong
+            ><span>Highest SLA compliance</span>
+          </div>
+          <div class="disc-item">
+            <strong>&#129309; My Network Trusts</strong
+            ><span>Upvoted by companies you trust</span>
+          </div>
+          <div class="disc-item">
+            <strong>&#128200; Best for Finance</strong
+            ><span>Filtered by context.task_type</span>
+          </div>
+          <div class="disc-item">
+            <strong>&#128176; Budget Picks</strong
+            ><span>Highest quality-to-price ratio</span>
+          </div>
+        </div>
+        <p>
+          Clone the Dolt registry, write your own ranking SQL, expose it as an
+          API. Competition between discovery algorithms improves quality for
+          everyone.
+        </p>
+      </div>
+    </section>
+
+    <!-- DOLT BACKBONE -->
+    <section style="background: var(--bg-raised)">
+      <div class="container reveal">
+        <div class="section-label">Storage</div>
+        <h2>The Dolt Backbone</h2>
+        <p>
+          Every table gets <strong>Git-style version control for free</strong>.
+          Time-travel queries, schema diffs, branch-and-merge for tool
+          configurations, and a tamper-evident audit trail.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">registry schema (SQL)</div>
+          <pre><span class="c">-- Tool registrations</span>
+<span class="k">CREATE TABLE</span> <span class="t">tools</span> (
+    id               <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
+    provider_domain  <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    provider_did     <span class="t">VARCHAR</span>(<span class="n">255</span>),           <span class="c">-- Tier 2, nullable</span>
+    name             <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    version          <span class="t">VARCHAR</span>(<span class="n">32</span>) <span class="k">NOT NULL</span>,
+    schema_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    invocation_json  <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    pricing_json     <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    payment_json     <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    capabilities     <span class="t">JSON</span>,
+    created_at       <span class="t">DATETIME</span>
+);
+
+<span class="c">-- Upvotes (proof-of-use quality signals)</span>
+<span class="k">CREATE TABLE</span> <span class="t">upvotes</span> (
+    id              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
+    tool_id         <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    caller_domain   <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    quality_score   <span class="t">INT</span>,
+    proof_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    context_json    <span class="t">JSON</span>,
+    created_at      <span class="t">DATETIME</span>,
+    <span class="k">FOREIGN KEY</span> (tool_id) <span class="k">REFERENCES</span> tools(id)
+);
+
+<span class="c">-- Invocation ledger</span>
+<span class="k">CREATE TABLE</span> <span class="t">invocations</span> (
+    id              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
+    tool_id         <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    input_hash      <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,
+    output_hash     <span class="t">VARCHAR</span>(<span class="n">64</span>),
+    payment_proof   <span class="t">VARCHAR</span>(<span class="n">500</span>),
+    latency_ms      <span class="t">INT</span>,
+    created_at      <span class="t">DATETIME</span>
+);
+
+<span class="c">-- Reputation (materialized view, recomputed periodically)</span>
+<span class="k">CREATE TABLE</span> <span class="t">reputation</span> (
+    tool_id           <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
+    verified_upvotes  <span class="t">INT</span> <span class="k">DEFAULT</span> <span class="n">0</span>,
+    avg_quality       <span class="t">DECIMAL</span>(<span class="n">3</span>,<span class="n">2</span>),
+    unique_callers    <span class="t">INT</span> <span class="k">DEFAULT</span> <span class="n">0</span>,
+    computed_at       <span class="t">DATETIME</span>
+);</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how-it-works">
+      <div class="container reveal">
+        <div class="section-label">End to End</div>
+        <h2>How it works</h2>
+
+        <h3>For a Company Listing a Tool</h3>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <p>
+              Company already has their tool running (API, MCP server, whatever)
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              They submit a <strong>tool record</strong> (JSON) to the Dolt
+              registry &mdash; schema, endpoint, pricing, payment
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              They verify domain ownership via <code>DNS TXT</code> record or
+              <code>.well-known</code>
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>That's it. No SDK. No middleware. No infrastructure changes.</p>
+          </div>
+        </div>
+
+        <h3>For an Agent Using a Tool</h3>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <p>Agent needs fraud detection for a financial analysis task</p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Queries the Dolt-backed registry:
+              <code>capabilities LIKE '%fraud%' ORDER BY reputation DESC</code>
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>Gets ranked tools, validates schema matches its needs</p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Reads the payment field, calls the tool &mdash; gateway reports
+              usage to Stripe
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Gets result, validates against schema, creates invocation + upvote
+              records
+            </p>
+          </div>
+        </div>
+
+        <h3>The Feedback Loop</h3>
+        <div class="loop-diagram">
+          <div class="loop-title">Virtuous Cycle</div>
+          <div class="loop-nodes">
+            <div class="loop-node">
+              Better tools get more upvotes<span class="node-arrow"
+                >&rarr;</span
+              >
+            </div>
+            <div class="loop-node">
+              More visibility in search<span class="node-arrow">&rarr;</span>
+            </div>
+            <div class="loop-node">
+              More agents discover &amp; pay<span class="node-arrow"
+                >&rarr;</span
+              >
+            </div>
+            <div class="loop-node">
+              More revenue for provider<span class="node-arrow">&rarr;</span>
+            </div>
+            <div class="loop-node">
+              Provider invests in quality<span class="node-arrow">&rarr;</span>
+            </div>
+          </div>
+          <p
+            style="
+              color: var(--text-muted);
+              font-size: 0.85rem;
+              margin-top: 1rem;
+            "
+          >
+            Quality &rarr; Visibility &rarr; Usage &rarr; Revenue &rarr; Quality
+            &infin;
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADOPTION TIERS -->
+    <section style="background: var(--bg-raised)">
+      <div class="container reveal">
+        <div class="section-label">Adoption</div>
+        <h2>Start simple. Upgrade when ready.</h2>
+        <p>
+          Companies start with the simplest possible on-ramp and upgrade when
+          the value is proven.
+        </p>
+
+        <div class="tier-grid">
+          <div class="tier-card featured">
+            <div class="tier-num">Tier 1 &mdash; MVP</div>
+            <h4>Dolt Registry</h4>
+            <dl>
+              <dt>Identity</dt>
+              <dd>Domain ownership (DNS TXT or .well-known)</dd>
+              <dt>Payment</dt>
+              <dd>Stripe metered billing (USD)</dd>
+              <dt>Discovery</dt>
+              <dd>SQL queries against the Dolt registry</dd>
+              <dt>Reputation</dt>
+              <dd>Proof-of-use upvotes in Dolt</dd>
+              <dt>Requires</dt>
+              <dd>
+                <strong>A JSON file and a domain you own. That's it.</strong>
+              </dd>
+            </dl>
+          </div>
+          <div class="tier-card">
+            <div class="tier-num">Tier 2 &mdash; Upgrade</div>
+            <h4>AT Protocol Integration</h4>
+            <dl>
+              <dt>Identity</dt>
+              <dd>DID anchored to domain (did:plc &rarr; @acme.com)</dd>
+              <dt>Payment</dt>
+              <dd>Stripe + Lightning, Cashu</dd>
+              <dt>Discovery</dt>
+              <dd>Toolbox feeds + cross-network at:// queries</dd>
+              <dt>Reputation</dt>
+              <dd>
+                Upvotes in caller's own repo &mdash; portable across registries
+              </dd>
+              <dt>Migration</dt>
+              <dd>All existing history and reputation carries over</dd>
+            </dl>
+          </div>
+        </div>
+        <p style="margin-top: 1.5rem">
+          Both tiers write to the same Dolt tables. A Tier 1 tool and a Tier 2
+          tool sit side by side. The only difference is whether
+          <code>at_uri</code> and <code>provider_did</code> are populated.
+          Agents don't care &mdash; they see the same schema, same pricing, same
+          endpoint.
+        </p>
+      </div>
+    </section>
+
+    <!-- WHAT THIS IS NOT -->
+    <section>
+      <div class="container reveal">
+        <div class="section-label">Boundaries</div>
+        <h2>What this is <em>not</em></h2>
+        <ul class="not-list">
+          <li>
+            <strong>Not a runtime</strong> &mdash; Tools run on the provider's
+            infrastructure. The Toolbox doesn't execute anything.
+          </li>
+          <li>
+            <strong>Not an MCP replacement</strong> &mdash; MCP, REST, gRPC are
+            invocation protocols. The Toolbox is discovery, payment, and
+            reputation. They're complementary.
+          </li>
+          <li>
+            <strong>Not a blockchain</strong> &mdash; Dolt has Git semantics.
+            It's versioned, auditable, tamper-evident &mdash; but not a
+            distributed consensus system.
+          </li>
+          <li>
+            <strong>Not a Bluesky app</strong> &mdash; Uses AT Protocol's design
+            patterns but doesn't depend on Bluesky infrastructure or social
+            graph.
+          </li>
+          <li>
+            <strong>Not centralized</strong> &mdash; The registry is a Dolt DB
+            anyone can clone. Anyone can run their own node, compute reputation,
+            or build discovery.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ANALOGIES -->
+    <section style="background: var(--bg-raised)">
+      <div class="container reveal">
+        <div class="section-label">Mental Models</div>
+        <h2>The analogies</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>You Know This</th>
+                <th>Toolbox Equivalent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>DNS</td>
+                <td>
+                  Tool discovery &mdash; resolve a capability to an endpoint
+                </td>
+              </tr>
+              <tr>
+                <td>TLS Certificates</td>
+                <td>Domain verification / DIDs &mdash; prove your identity</td>
+              </tr>
+              <tr>
+                <td>npm Registry</td>
+                <td>Tool registry &mdash; search, install, version</td>
+              </tr>
+              <tr>
+                <td>App Store Ratings</td>
+                <td>Reputation &mdash; but only from verified purchasers</td>
+              </tr>
+              <tr>
+                <td>Stripe Connect</td>
+                <td>Payment &mdash; provider declares how to be paid</td>
+              </tr>
+              <tr>
+                <td>Google PageRank</td>
+                <td>
+                  Discovery algorithms &mdash; anyone can rank differently
+                </td>
+              </tr>
+              <tr>
+                <td>Git + GitHub</td>
+                <td>
+                  Dolt + DoltHub &mdash; version control for registry &amp;
+                  ledger
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <blockquote style="margin-top: 2rem">
+          <p>
+            <strong
+              >npm + Stripe + Dolt, for AI agent tool calls, with AT Protocol's
+              data philosophy.</strong
+            >
+          </p>
+        </blockquote>
+      </div>
+    </section>
+
+    <!-- OPEN QUESTIONS -->
+    <section>
+      <div class="container reveal">
+        <div class="section-label">Open Questions</div>
+        <h2>Things we're still figuring out</h2>
+        <div
+          class="problem-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))"
+        >
+          <div class="problem-card">
+            <h4>Lexicon Governance</h4>
+            <p>
+              Who defines <code>com.toolbox.*</code> lexicons? A foundation? A
+              GitHub org? Follow AT Protocol norms &mdash; publish early, evolve
+              carefully.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Agent Wallets</h4>
+            <p>
+              V1: Stripe customer ID + spending cap. V2: per-agent budgets. V3:
+              prepaid balances. V4: autonomous agents with own funds (Lightning,
+              Cashu).
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Schema Evolution</h4>
+            <p>
+              When tool input/output changes, how do we handle backward
+              compatibility? Follow lexicon rules &mdash; additive only,
+              breaking changes = new name.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Privacy</h4>
+            <p>
+              Invocation logs contain sensitive data. Dolt ledger could be
+              local-only, with only upvotes going to the shared registry.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Dispute Resolution</h4>
+            <p>
+              What if a tool takes payment but returns garbage? Proof-of-use
+              creates a public record. Low quality + valid payment = strong
+              signal. Formal resolution is TBD.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Relay Economics</h4>
+            <p>
+              Who runs relays that index tool records? Same model as AT Protocol
+              relays &mdash; some public, some private, some subsidized by
+              providers.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REFERENCES -->
+    <section id="references" style="background: var(--bg-raised)">
+      <div class="container reveal">
+        <div class="section-label">Prior Art</div>
+        <h2>References</h2>
+        <div class="ref-grid">
+          <a
+            href="https://atproto.com/guides/overview"
+            target="_blank"
+            rel="noopener"
+            >AT Protocol &mdash; Overview &#8599;</a
+          >
+          <a
+            href="https://overreacted.io/a-social-filesystem/"
+            target="_blank"
+            rel="noopener"
+            >"A Social Filesystem" &mdash; Dan Abramov &#8599;</a
+          >
+          <a
+            href="https://github.com/steveyegge/gastown"
+            target="_blank"
+            rel="noopener"
+            >Gas Town &mdash; Steve Yegge &#8599;</a
+          >
+          <a
+            href="https://github.com/steveyegge/gastown/blob/main/docs/design/dolt-storage.md"
+            target="_blank"
+            rel="noopener"
+            >Gas Town &mdash; Dolt Storage Architecture &#8599;</a
+          >
+          <a
+            href="https://github.com/steveyegge/gastown/blob/main/docs/design/mol-mall-design.md"
+            target="_blank"
+            rel="noopener"
+            >Gas Town &mdash; Mol Mall Design &#8599;</a
+          >
+          <a
+            href="https://github.com/steveyegge/gastown/blob/main/docs/design/federation.md"
+            target="_blank"
+            rel="noopener"
+            >Gas Town &mdash; Federation &#8599;</a
+          >
+          <a
+            href="https://docs.dolthub.com/introduction/what-is-dolt"
+            target="_blank"
+            rel="noopener"
+            >Dolt DB &mdash; What is Dolt? &#8599;</a
+          >
+          <a
+            href="https://www.dolthub.com/blog/2024-10-15-dolt-use-cases/"
+            target="_blank"
+            rel="noopener"
+            >Dolt DB &mdash; Use Cases &#8599;</a
+          >
+          <a
+            href="https://docs.lightning.engineering/the-lightning-network/l402"
+            target="_blank"
+            rel="noopener"
+            >L402 (HTTP 402 + Lightning) &#8599;</a
+          >
+          <a href="https://cashu.space" target="_blank" rel="noopener"
+            >Cashu &mdash; ecash protocol &#8599;</a
+          >
+          <a
+            href="https://atproto.com/guides/lexicon"
+            target="_blank"
+            rel="noopener"
+            >Bluesky Lexicons &#8599;</a
+          >
+          <a href="https://pdsls.dev" target="_blank" rel="noopener"
+            >pdsls &mdash; AT Protocol file browser &#8599;</a
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <p>
+        The Agent Toolbox &mdash;
+        <a
+          href="https://github.com/duanebester/toolbox"
+          target="_blank"
+          rel="noopener"
+          >View on GitHub</a
+        >
+      </p>
+    </footer>
+
+    <!-- SCRIPTS -->
+    <script>
+      // Scroll reveal
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              e.target.classList.add("visible");
+              observer.unobserve(e.target);
+            }
+          });
+        },
+        { threshold: 0.08 },
+      );
+      document
+        .querySelectorAll(".reveal")
+        .forEach((el) => observer.observe(el));
+
+      // Close mobile nav on link click
+      document.querySelectorAll(".nav-links a").forEach((a) => {
+        a.addEventListener("click", () =>
+          document.querySelector(".nav-links").classList.remove("open"),
+        );
+      });
+
+      // Smooth active state in nav
+      const sections = document.querySelectorAll("section[id]");
+      const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+      window.addEventListener(
+        "scroll",
+        () => {
+          let current = "";
+          sections.forEach((s) => {
+            if (window.scrollY >= s.offsetTop - 200)
+              current = s.getAttribute("id");
+          });
+          navLinks.forEach((a) => {
+            a.style.color =
+              a.getAttribute("href") === "#" + current ? "#fff" : "";
+          });
+        },
+        { passive: true },
+      );
+    </script>
+  </body>
+</html>
