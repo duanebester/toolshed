@@ -14,6 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
       *,
       *::before,
@@ -110,8 +111,18 @@
         border-radius: 6px;
         display: grid;
         place-items: center;
-        font-size: 0.8rem;
         color: #fff;
+      }
+      nav .logo .icon svg {
+        width: 14px;
+        height: 14px;
+      }
+      .lucide-inline {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        stroke-width: 2;
       }
       nav .nav-links {
         display: flex;
@@ -403,8 +414,11 @@
         border-radius: var(--radius-sm);
         display: grid;
         place-items: center;
-        font-size: 1.1rem;
         margin-bottom: 1rem;
+      }
+      .problem-card .icon-wrap svg {
+        width: 20px;
+        height: 20px;
       }
       .problem-card h4 {
         font-size: 0.95rem;
@@ -1038,7 +1052,7 @@
     <nav>
       <div class="nav-inner">
         <div class="logo">
-          <div class="icon">&#9889;</div>
+          <div class="icon"><i data-lucide="zap"></i></div>
           <span>Agent Toolbox</span>
         </div>
         <button
@@ -1066,7 +1080,9 @@
           <a href="#payment">Payment</a>
           <a href="#reputation">Reputation</a>
           <a href="#how-it-works">How It Works</a>
-          <a href="#references" class="nav-cta">References &#8599;</a>
+          <a href="#references" class="nav-cta"
+            >References <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
         </div>
       </div>
     </nav>
@@ -1075,7 +1091,8 @@
     <section class="hero">
       <div class="hero-content">
         <div class="hero-badge">
-          &#128295; Decentralized Tool Registry for AI Agents
+          <i data-lucide="wrench" class="lucide-inline"></i> Decentralized Tool
+          Registry for AI Agents
         </div>
         <h1>The Agent Toolbox</h1>
         <p class="subtitle">
@@ -1085,7 +1102,10 @@
           <strong>AT Protocol's</strong> data model.
         </p>
         <div class="hero-cta-group">
-          <a href="#problem" class="btn btn-primary">Read the Thesis &#8595;</a>
+          <a href="#problem" class="btn btn-primary"
+            >Read the Thesis
+            <i data-lucide="arrow-down" class="lucide-inline"></i
+          ></a>
           <a href="#how-it-works" class="btn btn-outline">How It Works</a>
         </div>
         <div class="hero-visual">
@@ -1127,7 +1147,7 @@
         <div class="problem-grid">
           <div class="problem-card">
             <div class="icon-wrap" style="background: var(--accent-glow)">
-              &#128269;
+              <i data-lucide="search" style="color: var(--accent-bright)"></i>
             </div>
             <h4>No Discovery</h4>
             <p>
@@ -1137,7 +1157,7 @@
           </div>
           <div class="problem-card">
             <div class="icon-wrap" style="background: var(--green-dim)">
-              &#128179;
+              <i data-lucide="credit-card" style="color: var(--green)"></i>
             </div>
             <h4>No Payment</h4>
             <p>
@@ -1147,7 +1167,7 @@
           </div>
           <div class="problem-card">
             <div class="icon-wrap" style="background: var(--orange-dim)">
-              &#11088;
+              <i data-lucide="star" style="color: var(--orange)"></i>
             </div>
             <h4>No Reputation</h4>
             <p>
@@ -1157,7 +1177,7 @@
           </div>
           <div class="problem-card">
             <div class="icon-wrap" style="background: var(--red-dim)">
-              &#128268;
+              <i data-lucide="plug" style="color: var(--red)"></i>
             </div>
             <h4>No Portability</h4>
             <p>
@@ -1170,7 +1190,7 @@
               class="icon-wrap"
               style="background: rgba(253, 121, 168, 0.12)"
             >
-              &#128203;
+              <i data-lucide="clipboard-list" style="color: var(--pink)"></i>
             </div>
             <h4>No Audit Trail</h4>
             <p>
@@ -1492,7 +1512,9 @@
               ><span>Discovery</span><span>Identity</span>
             </div>
           </div>
-          <div class="arch-connector">&#8597;</div>
+          <div class="arch-connector">
+            <i data-lucide="arrow-up-down" class="lucide-inline"></i>
+          </div>
           <div class="arch-layer l2">
             <div class="layer-num">Layer 2 &mdash; Gateway</div>
             <h4>Invoke the tool, handle payment, verify response</h4>
@@ -1506,7 +1528,9 @@
               ><span>Metering</span><span>Validation</span>
             </div>
           </div>
-          <div class="arch-connector">&#8597;</div>
+          <div class="arch-connector">
+            <i data-lucide="arrow-up-down" class="lucide-inline"></i>
+          </div>
           <div class="arch-layer l3">
             <div class="layer-num">Layer 3 &mdash; Ledger</div>
             <h4>Who called what, when, what did it cost</h4>
@@ -1668,8 +1692,13 @@
         <div class="payment-pills">
           <span class="payment-pill active">Stripe Metered (MVP)</span>
           <span class="payment-pill active">Free / Open Source</span>
-          <span class="payment-pill future">&#9889; Lightning (L402)</span>
-          <span class="payment-pill future">&#129477; Cashu Ecash</span>
+          <span class="payment-pill future"
+            ><i data-lucide="zap" class="lucide-inline"></i> Lightning
+            (L402)</span
+          >
+          <span class="payment-pill future"
+            ><i data-lucide="coins" class="lucide-inline"></i> Cashu Ecash</span
+          >
           <span class="payment-pill future">Anyone Can Extend</span>
         </div>
 
@@ -1790,23 +1819,33 @@
         </p>
         <div class="disc-grid">
           <div class="disc-item">
-            <strong>&#128293; Trending Tools</strong
+            <strong
+              ><i data-lucide="flame" class="lucide-inline"></i> Trending
+              Tools</strong
             ><span>Most upvotes this week</span>
           </div>
           <div class="disc-item">
-            <strong>&#128737;&#65039; Most Reliable</strong
+            <strong
+              ><i data-lucide="shield-check" class="lucide-inline"></i> Most
+              Reliable</strong
             ><span>Highest SLA compliance</span>
           </div>
           <div class="disc-item">
-            <strong>&#129309; My Network Trusts</strong
+            <strong
+              ><i data-lucide="handshake" class="lucide-inline"></i> My Network
+              Trusts</strong
             ><span>Upvoted by companies you trust</span>
           </div>
           <div class="disc-item">
-            <strong>&#128200; Best for Finance</strong
+            <strong
+              ><i data-lucide="trending-up" class="lucide-inline"></i> Best for
+              Finance</strong
             ><span>Filtered by context.task_type</span>
           </div>
           <div class="disc-item">
-            <strong>&#128176; Budget Picks</strong
+            <strong
+              ><i data-lucide="badge-dollar-sign" class="lucide-inline"></i>
+              Budget Picks</strong
             ><span>Highest quality-to-price ratio</span>
           </div>
         </div>
@@ -2202,68 +2241,80 @@
             href="https://atproto.com/guides/overview"
             target="_blank"
             rel="noopener"
-            >AT Protocol &mdash; Overview &#8599;</a
-          >
+            >AT Protocol &mdash; Overview
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://overreacted.io/a-social-filesystem/"
             target="_blank"
             rel="noopener"
-            >"A Social Filesystem" &mdash; Dan Abramov &#8599;</a
-          >
+            >"A Social Filesystem" &mdash; Dan Abramov
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://github.com/steveyegge/gastown"
             target="_blank"
             rel="noopener"
-            >Gas Town &mdash; Steve Yegge &#8599;</a
-          >
+            >Gas Town &mdash; Steve Yegge
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://github.com/steveyegge/gastown/blob/main/docs/design/dolt-storage.md"
             target="_blank"
             rel="noopener"
-            >Gas Town &mdash; Dolt Storage Architecture &#8599;</a
-          >
+            >Gas Town &mdash; Dolt Storage Architecture
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://github.com/steveyegge/gastown/blob/main/docs/design/mol-mall-design.md"
             target="_blank"
             rel="noopener"
-            >Gas Town &mdash; Mol Mall Design &#8599;</a
-          >
+            >Gas Town &mdash; Mol Mall Design
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://github.com/steveyegge/gastown/blob/main/docs/design/federation.md"
             target="_blank"
             rel="noopener"
-            >Gas Town &mdash; Federation &#8599;</a
-          >
+            >Gas Town &mdash; Federation
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://docs.dolthub.com/introduction/what-is-dolt"
             target="_blank"
             rel="noopener"
-            >Dolt DB &mdash; What is Dolt? &#8599;</a
-          >
+            >Dolt DB &mdash; What is Dolt?
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://www.dolthub.com/blog/2024-10-15-dolt-use-cases/"
             target="_blank"
             rel="noopener"
-            >Dolt DB &mdash; Use Cases &#8599;</a
-          >
+            >Dolt DB &mdash; Use Cases
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://docs.lightning.engineering/the-lightning-network/l402"
             target="_blank"
             rel="noopener"
-            >L402 (HTTP 402 + Lightning) &#8599;</a
-          >
+            >L402 (HTTP 402 + Lightning)
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a href="https://cashu.space" target="_blank" rel="noopener"
-            >Cashu &mdash; ecash protocol &#8599;</a
-          >
+            >Cashu &mdash; ecash protocol
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a
             href="https://atproto.com/guides/lexicon"
             target="_blank"
             rel="noopener"
-            >Bluesky Lexicons &#8599;</a
-          >
+            >Bluesky Lexicons
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
           <a href="https://pdsls.dev" target="_blank" rel="noopener"
-            >pdsls &mdash; AT Protocol file browser &#8599;</a
-          >
+            >pdsls &mdash; AT Protocol file browser
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
         </div>
       </div>
     </section>
@@ -2324,6 +2375,9 @@
         },
         { passive: true },
       );
+    </script>
+    <script>
+      lucide.createIcons();
     </script>
   </body>
 </html>
