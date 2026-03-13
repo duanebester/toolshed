@@ -82,6 +82,23 @@ Production use cases that map directly to the Toolbox:
 
 Reference: https://www.dolthub.com/blog/2024-10-15-dolt-use-cases/
 
+### Unison Programming Language
+
+Unison is a programming language where every definition is identified by a **hash of its syntax tree**, not by its name. Names are just metadata — pointers to hashes. This eliminates an entire class of problems:
+
+- **No version conflicts**: Two versions of a function are just two different hashes. They coexist. Old code referencing the old hash keeps working.
+- **No builds break**: Dependencies are pinned by hash, not by name. Changing a name doesn't invalidate anything.
+- **No dependency diamond**: Different libraries depending on different versions of the same thing? Not a problem — they're different hashes.
+- **Immutable definitions**: Once a definition exists at a hash, it never changes. The contents of an address are forever.
+
+**Key insight**: _"What we now think of as a dependency conflict is instead just a situation where there are multiple terms or types that serve a similar purpose."_ The Toolbox applies this to tool schemas — a "new version" isn't a mutation, it's a new hash. The old one still works.
+
+**What we take**: Content-addressed identity for tool definitions. The two-layer split between immutable definitions (keyed by hash) and mutable names/metadata (pointers to hashes).
+
+**What we don't take**: Unison's syntax tree hashing, its codebase manager, or its runtime. We hash the tool's schema + invocation contract + provider identity, using the principle but not the implementation.
+
+Reference: https://www.unison-lang.org/docs/the-big-idea/
+
 ---
 
 ## The On-Ramp
@@ -94,13 +111,13 @@ Today, developers give agents tools by adding MCP servers and API keys to a JSON
     "toolbox": {
       "command": "npx",
       "args": ["@agent-toolbox/mcp-server"],
-      "env": { "STRIPE_CUSTOMER_ID": "cus_abc123" }
+      "env": { "TOOLBOX_ACCOUNT_ID": "acct_abc123" }
     }
   }
 }
 ```
 
-One config entry. Now your agent has access to every tool in the registry. No new paradigm, no behavioral shift — just another MCP server that happens to be a gateway to thousands of tools.
+One config entry. Now your agent has access to every tool in the registry. No new paradigm, no behavioral shift — just another MCP server that happens to be a gateway to thousands of tools. The `TOOLBOX_ACCOUNT_ID` is a Stripe Accounts v2 object — the same ID works whether the operator is consuming tools, providing tools, or both.
 
 ### The Meta-Tools
 
@@ -148,13 +165,15 @@ This means the Toolbox doesn't compete with existing tool configurations. It's a
 └───────────────────────┬────────────────────────────────────┘
                         │
 ┌───────────────────────▼────────────────────────────────────┐
-│  LAYER 2: GATEWAY (thin routing + auth + metering)         │
+│  LAYER 2: GATEWAY (thin routing + payment + metering)      │
 │                                                            │
 │  "Invoke the tool, handle payment, verify response"        │
 │  - Protocol translation (MCP, REST, gRPC — doesn't care)  │
-│  - Payment negotiation (reads payment methods from record) │
-│  - Usage metering (Stripe metered billing)                 │
+│  - Payment: credit drawdown (fast) or destination charge   │
+│  - Usage metering via Stripe Billing Meters (async)        │
+│  - Credit balance checks (local, no Stripe round-trip)     │
 │  - Response validation against schema                      │
+│  - Stripe Agent Toolkit for payment orchestration          │
 └───────────────────────┬────────────────────────────────────┘
                         │
 ┌───────────────────────▼────────────────────────────────────┐
@@ -165,6 +184,7 @@ This means the Toolbox doesn't compete with existing tool configurations. It's a
 │  - Every invocation = a Dolt commit                        │
 │  - Time-travel, diff, reproduce any agent decision         │
 │  - Settlement and reconciliation records                   │
+│  - The proof layer that metered billing alone can't provide│
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -192,18 +212,16 @@ Every entity in the system is a **record** — a JSON document with a schema. Th
 
 ### The Tool Record
 
-A company registers a tool by submitting a JSON record to the Dolt registry. In the simplest case (Tier 1 — see [Adoption Tiers](#adoption-tiers)), this is as easy as a CLI command or a PR to a DoltHub repo. No PDS required.
+A company registers a tool in two parts: an immutable **definition** (the contract) and a mutable **listing** (the metadata). In the simplest case (Tier 1 — see [Adoption Tiers](#adoption-tiers)), this is as easy as a CLI command or a PR to a DoltHub repo. No PDS required.
+
+The registry hashes the definition's schema, invocation, capabilities, and provider identity to produce a `content_hash` — the tool's true identity. Names, pricing, and SLA are mutable metadata on the listing.
 
 ```json
+// Definition (immutable, keyed by content_hash)
+// content_hash: sha256:a1b2c3d4e5f6...
 // Provider: acme.com (domain-verified)
-// Collection: com.toolbox.tool/
-// Record key: fraud-detection-v3
 
 {
-  "name": "Fraud Detection",
-  "version": "3.1.0",
-  "description": "Real-time transaction fraud scoring with ML",
-
   "provider": {
     "domain": "acme.com",
     "did": "did:plc:acme-corp"
@@ -227,6 +245,24 @@ A company registers a tool by submitting a JSON record to the Dolt registry. In 
     "tool_name": "fraud_check"
   },
 
+  "capabilities": ["fraud", "ml", "financial", "real-time"],
+
+  "createdAt": "2026-03-01T00:00:00Z"
+}
+```
+
+```json
+// Listing (mutable, points to a definition)
+// Collection: com.toolbox.tool/
+// Record key: fraud-detection@acme.com
+
+{
+  "definition_hash": "sha256:a1b2c3d4e5f6...",
+
+  "name": "Fraud Detection",
+  "version_label": "3.1.0",
+  "description": "Real-time transaction fraud scoring with ML",
+
   "pricing": {
     "model": "per_call",
     "price": 0.005,
@@ -235,10 +271,14 @@ A company registers a tool by submitting a JSON record to the Dolt registry. In 
   },
 
   "payment": {
-    "stripe": {
-      "payment_link": "https://buy.stripe.com/acme_tool_fraud",
-      "meter_id": "mtr_abc123"
-    }
+    "methods": [
+      {
+        "type": "stripe_connect",
+        "provider_account": "acct_acme_abc123",
+        "price_per_call": 0.005,
+        "currency": "usd"
+      }
+    ]
   },
 
   "sla": {
@@ -247,9 +287,7 @@ A company registers a tool by submitting a JSON record to the Dolt registry. In 
     "rate_limit": "1000/min"
   },
 
-  "capabilities": ["fraud", "ml", "financial", "real-time"],
-
-  "createdAt": "2026-03-01T00:00:00Z"
+  "updatedAt": "2026-03-01T00:00:00Z"
 }
 ```
 
@@ -266,8 +304,8 @@ When an agent uses a tool and gets good results, it creates an upvote record —
   "subject": "com.toolbox.tool/fraud-detection-v3@acme.com",
 
   "proof": {
-    "payment_method": "stripe",
-    "stripe_invoice_id": "in_1abc123def456",
+    "payment_method": "stripe_credits",
+    "meter_event_id": "mevt_1abc123def456",
     "amount": 0.005,
     "currency": "usd",
     "invocation_hash": "sha256:deadbeef...",
@@ -294,13 +332,44 @@ When an agent uses a tool and gets good results, it creates an upvote record —
 
 ### Summary of Record Types
 
-| Record              | Where It Lives                               | Purpose                                               |
-| ------------------- | -------------------------------------------- | ----------------------------------------------------- |
-| Tool registration   | Dolt registry (`com.toolbox.tool/`)          | "Here's my tool, schema, pricing, and how to pay"     |
-| Tool schema/lexicon | Dolt registry (`com.toolbox.lexicon/`)       | Machine-readable input/output contract                |
-| Invocation log      | Dolt ledger (`com.toolbox.tool.invocation/`) | Record of each call (input hash, output hash, timing) |
-| Upvote              | Dolt registry (`com.toolbox.tool.upvote/`)   | Quality signal with proof-of-use                      |
-| Payment proof       | Field on the upvote record                   | Receipt that payment occurred                         |
+| Record              | Where It Lives                               | Purpose                                                       |
+| ------------------- | -------------------------------------------- | ------------------------------------------------------------- |
+| Tool definition     | Dolt registry (`tool_definitions`)           | Immutable contract: schema, invocation, capabilities          |
+| Tool listing        | Dolt registry (`com.toolbox.tool/`)          | Mutable metadata: name, pricing, SLA — points to a definition |
+| Tool schema/lexicon | Dolt registry (`com.toolbox.lexicon/`)       | Machine-readable input/output contract                        |
+| Invocation log      | Dolt ledger (`com.toolbox.tool.invocation/`) | Record of each call (input hash, output hash, timing)         |
+| Upvote              | Dolt registry (`com.toolbox.tool.upvote/`)   | Quality signal with proof-of-use                              |
+| Payment proof       | Field on the upvote record                   | Stripe charge ID — verifiable by both parties                 |
+
+### Content-Addressed Tools (Inspired by Unison)
+
+The Unison programming language never has version conflicts because every definition is identified by a **hash of its syntax tree**. Names are just metadata — pointers to hashes. Two versions of the same function coexist as two different hashes. Old code referencing the old hash keeps working. New code references the new hash. There's nothing to break.
+
+The Toolbox applies this principle to tool records. Instead of relying on a mutable `version` field and human coordination, the tool's **schema + invocation contract + provider identity** are hashed to produce a `content_hash` — the tool's true identity. Names, descriptions, version labels, pricing, and SLA are mutable metadata that point to the hash.
+
+This splits the tool record into two layers:
+
+- **Tool definitions** (immutable, keyed by content hash) — the contract. Schema, invocation endpoint, capabilities, provider identity. Once written, never updated, never deleted.
+- **Tool listings** (mutable, human-readable) — the pointer. Name, description, version label, pricing, SLA, payment methods. Updated freely by the provider. Points to a definition hash.
+
+**What this gets you:**
+
+- **No breaking changes, ever.** Provider pushes a new schema → new hash → new definition. Old hash still exists. Agents pinned to the old hash keep working.
+- **No version conflicts.** Two definitions with different schemas are just different hashes. They coexist. No coordination needed.
+- **Agents pin by hash, not by name.** After a successful call, an agent stores `toolbox:sha256:abc123` — immutable, precise. The name can change, the provider can restructure — the hash is stable.
+- **Identical tools deduplicate.** Two providers publishing the same schema and contract share a content hash. Discovery surfaces both providers for the same definition.
+- **No `deprecated` field needed.** Old hashes just exist. If no one calls them, reputation goes stale and agents naturally migrate to newer definitions.
+- **Version labels are cosmetic.** `"3.1.0"` is for humans, like a Git tag. The hash is the real identity.
+
+**How search and human browsing work:**
+
+Search operates on the mutable metadata layer — names, descriptions, capabilities, pricing. `toolbox_search({ capabilities: ["fraud"], max_price: 0.01 })` returns human-readable results ranked by quality and price. Each result carries its `content_hash`. Humans browse the registry like npm — names, descriptions, version labels. The hash is a detail you can click into, like a commit SHA on GitHub.
+
+**How Dolt makes this seamless:**
+
+The immutable `tool_definitions` table is append-only — Dolt's version history tracks when each definition was added, but the rows themselves never change. The mutable `tool_listings` table gets full Dolt history — `dolt_history_tool_listings` shows every pointer change over time. `AS OF` queries reproduce exactly which definition a listing pointed to on any date. `dolt_diff()` shows what changed between listing updates. Branching lets providers preview schema changes before publishing.
+
+Reference: https://www.unison-lang.org/docs/the-big-idea/
 
 ---
 
@@ -308,61 +377,257 @@ When an agent uses a tool and gets good results, it creates an upvote record —
 
 ### Philosophy
 
-Payment is not a special subsystem. It's **just a field on the tool record** — the provider declares "send cash this way" as part of their tool registration. The agent reads the payment methods, picks one it supports, pays, and calls the tool. No special payment servers. No payment middleware. The provider says how they want to be paid; the agent pays them directly.
+Payment is not a special subsystem. It's **just a field on the tool record** — the provider declares "send cash this way" as part of their tool registration. The Toolbox is a **Stripe Connect platform** — a billing intermediary that earns its place in the middle by handling all the payment infrastructure so providers and agents don't have to.
 
-### Payment Methods (MVP)
+This is honestly centralized for MVP. The Toolbox takes a platform fee on every tool call routed through the hosted gateway. But the centralization provides real value (billing, tax, invoicing, single bill for agents, single payout for providers), and the exit is real — anyone can run their own Toolbox instance and handle payment however they want. And the payment field on the tool record supports multiple methods — including ones that bypass the gateway entirely.
 
-The MVP uses **Stripe metered billing** with USD pricing. This is the pragmatic choice: enterprises already have Stripe accounts, agents can interact with Stripe's API programmatically, and it handles invoicing, reconciliation, and tax compliance out of the box.
+### The Unified Account Model (Stripe Accounts v2)
+
+Stripe's Accounts v2 API lets a single `Account` object carry multiple configurations. The Toolbox uses this to create a **unified identity** for every participant:
+
+- **Tool provider** → Account with `merchant` configuration (receives payments via destination charges)
+- **Agent operator** → Account with `customer` configuration (has payment method, credit balance, metered subscription)
+- **Both** → Account with `merchant` + `customer` configurations (a company that provides tools AND consumes tools — one identity, one account)
+
+```json
+// Creating a Toolbox account via Stripe Accounts v2
+{
+  "contact_email": "eng@acme.com",
+  "display_name": "Acme Corp",
+  "identity": {
+    "business_details": { "registered_name": "Acme Corp" },
+    "country": "us",
+    "entity_type": "company"
+  },
+  "configuration": {
+    "customer": {},
+    "merchant": {
+      "capabilities": {
+        "card_payments": { "requested": true }
+      }
+    }
+  }
+}
+```
+
+No more managing separate `Customer` and `Account` objects. No more mapping IDs. The `TOOLBOX_ACCOUNT_ID` in the agent's config is the same ID that appears in the tool record's `provider_account` field. One identity across the whole system.
+
+### The Hybrid Payment Model
+
+The MVP uses a **hybrid model** that picks the right payment mechanism based on the call:
+
+| Call type                 | Payment mechanism                                              | Latency      | Trust model                                            |
+| ------------------------- | -------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
+| Sub-$1 calls (most calls) | **Credit drawdown** — deduct from prepaid balance, meter async | ~0ms added   | Credits are pre-funded; Dolt ledger is the proof layer |
+| High-value calls (>$1)    | **Destination charge** — synchronous Stripe charge before call | ~500ms added | Stripe charge ID verifiable by both parties            |
+| Free / open-source tools  | **None** — just auth                                           | 0ms          | N/A                                                    |
+| L402 / Cashu (future)     | **Direct to provider** — no gateway in the payment loop        | ~0ms added   | Cryptographic proof (preimage / ecash token)           |
+
+This solves the latency problem that a pure "charge before every call" model creates. Most tool calls are sub-dollar micropayments — you don't need a synchronous Stripe round-trip for a $0.005 fraud check. You need a prepaid balance and a reliable ledger.
+
+The default threshold is **$1** — calls below it use credit drawdown, calls above use a synchronous destination charge. Providers can override this in their tool record (e.g., a high-value compliance tool might always require synchronous proof; a high-trust provider might accept credits for any amount). The gateway respects the stricter of the two settings.
+
+### Credit Drawdown (The Fast Path)
+
+Stripe's **Billing Credits** (public preview) plus **Billing Meters** provide the fast-path payment mechanism. The agent's operator pre-funds a credit balance. Each tool call draws down credits locally, with async metering to Stripe for invoicing and settlement.
+
+**How it works:**
+
+```
+1. Agent operator pre-funds credits:
+   - Stripe creates a Credit Grant on their Account
+   - e.g., $50 of prepaid tool-call credits
+   - Credits can have expiration dates, priority, scope
+
+2. Agent calls toolbox_invoke({ tool: "fraud-v3@acme.com", input: {...} })
+
+3. Gateway checks credit balance (local cache, no Stripe round-trip):
+   - Sufficient balance? → proceed
+   - Insufficient? → reject with "top up credits" error
+   - Over per-call budget? → reject with budget exceeded
+
+4. Gateway calls the provider's tool endpoint
+
+5. On success:
+   - Gateway reports a meter event to Stripe (async):
+     POST /v1/billing/meter_events
+     { meter: "tool_calls", payload: { tool_id, amount, provider_account } }
+   - Credits draw down at invoice finalization
+   - Dolt ledger records the invocation (the proof layer)
+
+6. On failure:
+   - No meter event reported → no credit drawdown
+   - Dolt ledger records the failure
+```
+
+**Why this works for trust:**
+
+The original concern with metered billing was valid: "the provider has no proof of payment at call time." Pure metered billing in a decentralized model lets the gateway lie. The hybrid model solves this:
+
+- **The Dolt ledger is the proof layer.** Every invocation is a commit — input hash, output hash, timing, meter event ID. The provider can clone the ledger and verify.
+- **Credits are real money, pre-funded.** The operator already paid Stripe. The question is only allocation, not whether payment exists.
+- **Meter events are auditable.** Stripe's meter event summaries reconcile against the Dolt ledger. Any discrepancy is detectable by either party.
+- **Settlement is automatic.** Stripe aggregates meter events into invoices. Destination transfers flow to providers on their payout schedule.
+
+### Destination Charges (The High-Value Path)
+
+For calls above a configurable threshold (default: $1), or when a provider requires synchronous payment proof, the gateway falls back to a **Stripe Connect destination charge** — the same model from the original design:
+
+```
+1. Gateway creates a destination charge:
+   - Charges the agent's operator
+   - Routes funds to the provider's Connected Account
+   - Application fee flows back to the platform
+2. Stripe returns a charge ID — verifiable by both parties
+3. Gateway calls the provider's tool endpoint with the charge ID
+4. Provider can verify the charge in their Stripe dashboard
+```
+
+The `application_fee_amount` on destination charges handles the platform's cut. Stripe deducts its processing fees from the platform's portion, not the provider's — so the provider always receives the full transfer amount minus the application fee.
+
+### Platform Fee Tiers (No Code)
+
+Stripe's **Platform Pricing Tool** lets the Toolbox define fee schedules from the Dashboard — no code changes, no redeployment:
+
+```
+Default pricing:           15% application fee on all tool calls
+Pricing group "scale":     10% for providers with >10k calls/month
+Pricing group "enterprise": 8% for contracted enterprise providers
+Pricing group "community":  0% for open-source / free-tier tools
+```
+
+Volume tiers apply automatically based on transaction properties. The Dolt ledger makes fee structures transparent and auditable — anyone can clone the registry and verify what fees were charged on what calls.
+
+### Stripe Connect (Account Setup)
+
+**Provider onboarding:**
+
+```
+1. Provider signs up with Toolbox
+2. Toolbox creates a Stripe Account v2 with `merchant` configuration
+3. Provider completes Stripe onboarding (identity, bank account)
+4. Provider lists their tool in the Dolt registry
+5. Tool record's payment field references their Account ID
+```
+
+**Operator onboarding:**
+
+```
+1. Operator signs up with Toolbox
+2. Toolbox creates a Stripe Account v2 with `customer` configuration
+3. Operator adds a payment method and pre-funds credits
+4. Operator gets a TOOLBOX_ACCOUNT_ID for their agent config
+5. Agent can now discover and call any tool in the registry
+```
+
+**If a company is both provider and operator** (common), it's one Account with both configurations. No duplication.
+
+**The payment field on the tool record:**
 
 ```json
 "payment": {
-    "stripe": {
-        "payment_link": "https://buy.stripe.com/acme_tool_fraud",
-        "meter_id": "mtr_abc123"
-    }
+    "methods": [
+        {
+            "type": "stripe_connect",
+            "provider_account": "acct_acme_abc123",
+            "price_per_call": 0.005,
+            "currency": "usd"
+        }
+    ]
 }
 ```
+
+The `platform_fee_pct` is deliberately absent from the tool record. Fees are set by the platform via Stripe's Platform Pricing Tool, not declared by the provider. This means the Toolbox can adjust fee tiers without requiring providers to update their records, and providers can't game the system by declaring lower fees.
 
 Or for free/open-source tools:
 
 ```json
 "payment": {
-    "free": {}
+    "methods": [
+        { "type": "free" }
+    ]
 }
 ```
+
+### Payment Verification
+
+Payment verification is different depending on who's doing the verifying:
+
+| Party               | What they verify               | How                                                                           |
+| ------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
+| **Gateway**         | Operator can pay               | Account has valid payment method + sufficient credit balance + under budget   |
+| **Gateway**         | Call succeeded before metering | Tool returned valid response; meter event reported to Stripe                  |
+| **Provider**        | They got paid                  | Destination transfers appear in their Stripe dashboard; meter summaries match |
+| **Provider**        | Specific call was paid for     | Invocation record in Dolt ledger matches meter event ID and transfer          |
+| **Upvote verifier** | Upvote is backed by real usage | `proof.meter_event_id` resolves to a real meter event; ledger commit exists   |
+
+The key insight: **the Dolt ledger and Stripe meters are complementary proof systems.** Stripe handles the money. Dolt handles the receipts. Either party can audit by comparing the two. The gateway can't lie about usage without the discrepancy showing up in the ledger-vs-meter reconciliation.
 
 ### Extensible via Lexicons
 
 New payment methods don't require protocol changes. Anyone publishes a new lexicon:
 
 ```
-com.toolbox.defs#paymentStripe       ← MVP payment method
-com.toolbox.defs#paymentFree         ← open source / community tools
-com.toolbox.defs#paymentLightning    ← future: machine-native micropayments
-com.toolbox.defs#paymentCashu        ← future: bearer token micropayments
-io.fedi.defs#paymentFedimint         ← community-defined
-xyz.newrail.defs#paymentWhatever     ← anyone can extend
+com.toolbox.defs#paymentStripeConnect  ← MVP payment method (credits + destination charges)
+com.toolbox.defs#paymentFree           ← open source / community tools
+com.toolbox.defs#paymentLightning      ← machine-native micropayments (no gateway needed)
+com.toolbox.defs#paymentCashu          ← bearer token micropayments (no gateway needed)
+io.fedi.defs#paymentFedimint           ← community-defined
+xyz.newrail.defs#paymentWhatever       ← anyone can extend
 ```
 
 Validate on read. If a tool lists a payment method the agent doesn't understand, the agent skips it and picks one it does understand. If it can't pay at all, it moves on to the next matching tool.
 
-### Payment Options in Detail
-
-**Stripe (MVP)**: Metered billing in USD. The Toolbox stores the Stripe meter ID in the tool record. The gateway reports usage events to Stripe's metering API on each invocation. Providers get paid through Stripe's existing settlement infrastructure. Agents (or their operators) connect via Stripe customer accounts. Invoices, purchase orders, and tax compliance come for free.
-
-**Dolt Ledger (Internal)**: For trusted/enterprise environments. Every tool call creates a row in a Dolt table. Companies reconcile monthly. The ledger is versioned, diffable, and tamper-evident.
-
-**Free / Open Source**: Community tools. The `"free"` payment method signals no payment required.
-
 ### Future Payment Methods
 
-As the ecosystem matures and agent-to-agent transactions become more autonomous, machine-native payment rails become compelling:
+As the ecosystem matures and agent-to-agent transactions become more autonomous, machine-native payment rails become compelling — and they **don't need the gateway at all**:
 
-**Lightning (L402)**: Machine-native micropayments. Server returns HTTP 402 with a Lightning invoice, agent pays, gets a macaroon (auth token), calls the tool. No accounts, no API keys, no billing cycles. The payment preimage is cryptographic proof. Best for: autonomous agents with budgets, sub-cent per-call pricing.
+**Lightning (L402)**: Machine-native micropayments. Server returns HTTP 402 with a Lightning invoice, agent pays, gets a macaroon (auth token), calls the tool. No accounts, no API keys, no billing cycles. The payment preimage is cryptographic proof. Best for: autonomous agents with budgets, sub-cent per-call pricing. **No gateway needed** — the agent pays the provider directly.
 
-**Cashu Ecash**: Prepaid bearer tokens. Agent gets an "allowance" of ecash tokens from a Cashu mint. Each tool call burns a token — offline, instant, no round-trip. Provider redeems tokens with the mint. Best for: high-frequency, low-latency agent workflows where Stripe's round-trip is too slow.
+**Cashu Ecash**: Prepaid bearer tokens. Agent gets an "allowance" of ecash tokens from a Cashu mint. Each tool call burns a token — offline, instant, no round-trip. Provider redeems tokens with the mint. Best for: high-frequency, low-latency agent workflows. **No gateway needed** — the token IS the payment.
 
-These methods slot in alongside Stripe — providers list multiple payment options, agents pick whichever they support. The architecture doesn't change; only the `payment` field on the tool record grows.
+These methods slot in alongside Stripe Connect. A tool can list multiple payment methods:
+
+```json
+"payment": {
+    "methods": [
+        {
+            "type": "stripe_connect",
+            "provider_account": "acct_acme_abc123",
+            "price_per_call": 0.005,
+            "currency": "usd"
+        },
+        {
+            "type": "l402",
+            "endpoint": "https://tools.acme.com/l402/fraud_check",
+            "price_sats": 50
+        },
+        {
+            "type": "cashu",
+            "mint": "https://mint.acme.com",
+            "price_sats": 50
+        }
+    ]
+}
+```
+
+When the agent uses `stripe_connect`, the Toolbox gateway handles it and takes its cut. When the agent uses `l402` or `cashu`, the agent pays the provider directly — the Toolbox is cut out of the payment entirely. **The Toolbox has to compete on value** (discovery, reputation, convenience, dispute resolution) rather than lock-in. That's the healthy dynamic.
+
+The progression from Stripe Credits → L402 → Cashu mirrors a broader decentralization arc: start with the most familiar rails (Stripe), graduate to machine-native rails as agent autonomy increases. The tool record's multi-method payment field means this happens tool-by-tool, not all-at-once — a provider can offer Stripe today and add L402 tomorrow without breaking anything.
+
+### Failure and Refunds
+
+If the tool fails after payment, the Dolt ledger provides a full receipts trail:
+
+1. The **meter event** or **Stripe charge** (auditable by both parties)
+2. The **invocation record** in Dolt (input hash, output hash, latency, `schema_valid`)
+3. The **upvote** with a low quality score and valid payment proof
+
+For credit-based calls: the gateway simply doesn't report the meter event to Stripe, so no credits are drawn down. The failure is recorded in the Dolt ledger.
+
+For destination charges: the gateway creates a refund with `reverse_transfer=true` and `refund_application_fee=true` — Stripe unwinds the entire flow atomically. Both parties see the refund in their dashboards.
+
+For gray areas (tool returned _something_ but it was wrong), the Dolt ledger gives both parties an auditable record to resolve disputes. Low-quality upvotes with valid payment proofs are strong public signals.
 
 ---
 
@@ -415,58 +680,94 @@ These are query endpoints that return ranked lists of tools. Anyone can run one 
 ### Registry Schema
 
 ```sql
--- Tool registrations
--- Tier 1: domain-verified providers push records directly to Dolt
--- Tier 2: AT Protocol providers get an at_uri linking to their PDS repo
-CREATE TABLE tools (
-    id VARCHAR(255) PRIMARY KEY,            -- com.toolbox.tool/fraud-detection-v3@acme.com
-    provider_domain VARCHAR(255) NOT NULL,   -- acme.com (verified via DNS TXT or .well-known)
-    provider_did VARCHAR(255),               -- did:plc:acme-corp (Tier 2, nullable)
-    at_uri VARCHAR(500),                     -- at://did:plc:acme/com.toolbox.tool/fraud-v3 (Tier 2, nullable)
-    name VARCHAR(255) NOT NULL,
-    version VARCHAR(32) NOT NULL,
-    description TEXT,
-    schema_json JSON NOT NULL,              -- input/output contract
-    invocation_json JSON NOT NULL,          -- protocol, endpoint
-    pricing_json JSON NOT NULL,             -- model, price, currency, bulk
-    payment_json JSON NOT NULL,             -- accepted payment methods (Stripe for MVP)
-    sla_json JSON,
-    capabilities JSON,                      -- capability tags for search
+-- Accounts (unified identity via Stripe Accounts v2)
+-- One account = one identity, whether provider, operator, or both
+CREATE TABLE accounts (
+    id VARCHAR(255) PRIMARY KEY,            -- acct_abc123 (Stripe Account v2 ID)
+    domain VARCHAR(255) NOT NULL,           -- acme.com (verified via DNS TXT or .well-known)
+    did VARCHAR(255),                       -- did:plc:acme-corp (Tier 2, nullable)
+    display_name VARCHAR(255),
+    is_provider BOOLEAN DEFAULT FALSE,      -- has merchant configuration
+    is_operator BOOLEAN DEFAULT FALSE,      -- has customer configuration
+    stripe_onboarded BOOLEAN DEFAULT FALSE,
     created_at DATETIME,
     updated_at DATETIME
+);
+
+-- Tool definitions (immutable, content-addressed)
+-- Keyed by hash of schema + invocation + capabilities + provider identity
+-- Append-only: rows are never updated or deleted
+CREATE TABLE tool_definitions (
+    content_hash VARCHAR(64) PRIMARY KEY,    -- sha256 of (schema + invocation + provider identity)
+    provider_account VARCHAR(255) NOT NULL,   -- acct_abc123 (Stripe Account v2, unified identity)
+    provider_domain VARCHAR(255) NOT NULL,    -- acme.com (verified via DNS TXT or .well-known)
+    provider_did VARCHAR(255),                -- did:plc:acme-corp (Tier 2, nullable)
+    schema_json JSON NOT NULL,               -- input/output contract
+    invocation_json JSON NOT NULL,           -- protocol, endpoint
+    capabilities JSON,                       -- capability tags for search
+    created_at DATETIME,
+    FOREIGN KEY (provider_account) REFERENCES accounts(id)
+);
+
+-- Tool listings (mutable, human-readable metadata)
+-- Points to a tool_definition via content_hash
+-- Tier 1: domain-verified providers push records directly to Dolt
+-- Tier 2: AT Protocol providers get an at_uri linking to their PDS repo
+CREATE TABLE tool_listings (
+    id VARCHAR(255) PRIMARY KEY,             -- com.toolbox.tool/fraud-detection@acme.com
+    definition_hash VARCHAR(64) NOT NULL,     -- points to tool_definitions.content_hash
+    provider_account VARCHAR(255) NOT NULL,   -- acct_abc123 (Stripe Account v2, unified identity)
+    provider_domain VARCHAR(255) NOT NULL,    -- acme.com (verified via DNS TXT or .well-known)
+    provider_did VARCHAR(255),                -- did:plc:acme-corp (Tier 2, nullable)
+    at_uri VARCHAR(500),                      -- at://did:plc:acme/com.toolbox.tool/fraud-v3 (Tier 2, nullable)
+    name VARCHAR(255) NOT NULL,
+    version_label VARCHAR(32),                -- "3.1.0" — cosmetic, for humans (like a Git tag)
+    description TEXT,
+    pricing_json JSON NOT NULL,              -- model, price, currency, bulk
+    payment_json JSON NOT NULL,              -- accepted payment methods (Stripe for MVP)
+    sla_json JSON,
+    created_at DATETIME,
+    updated_at DATETIME,
+    FOREIGN KEY (definition_hash) REFERENCES tool_definitions(content_hash),
+    FOREIGN KEY (provider_account) REFERENCES accounts(id)
 );
 
 -- Upvotes (proof-of-use quality signals)
 CREATE TABLE upvotes (
     id VARCHAR(255) PRIMARY KEY,            -- com.toolbox.tool.upvote/5kqw3x@agent-company-xyz.com
     tool_id VARCHAR(255) NOT NULL,          -- what tool was upvoted
+    caller_account VARCHAR(255) NOT NULL,   -- acct_xyz789 (Stripe Account v2)
     caller_domain VARCHAR(255) NOT NULL,    -- who upvoted (domain-verified)
     caller_did VARCHAR(255),                -- Tier 2, nullable
     quality_score INT,                      -- 1-5
     latency_met_sla BOOLEAN,
     schema_valid BOOLEAN,
-    proof_json JSON NOT NULL,               -- Stripe invoice ID, invocation hash, ledger commit
+    proof_json JSON NOT NULL,               -- meter event ID, invocation hash, ledger commit
     context_json JSON,                      -- task type, complexity
     created_at DATETIME,
-    FOREIGN KEY (tool_id) REFERENCES tools(id)
+    FOREIGN KEY (tool_id) REFERENCES tool_listings(id),
+    FOREIGN KEY (caller_account) REFERENCES accounts(id)
 );
 
 -- Invocation ledger (local to each Toolbox node)
 CREATE TABLE invocations (
     id VARCHAR(255) PRIMARY KEY,
     tool_id VARCHAR(255) NOT NULL,
+    definition_hash VARCHAR(64) NOT NULL,    -- the exact definition called (immutable pin)
+    caller_account VARCHAR(255) NOT NULL,   -- acct_xyz789 (Stripe Account v2)
     caller_domain VARCHAR(255) NOT NULL,
     caller_did VARCHAR(255),                -- Tier 2, nullable
     input_hash VARCHAR(64) NOT NULL,        -- sha256 of input
     output_hash VARCHAR(64),                -- sha256 of output
-    payment_method VARCHAR(32),             -- "stripe", "free", "lightning", etc.
+    payment_method VARCHAR(32),             -- "stripe_credits", "stripe_charge", "free", "l402", etc.
     payment_amount DECIMAL(10,4),
     payment_currency VARCHAR(16),           -- "usd" for MVP
-    payment_proof VARCHAR(500),             -- Stripe invoice ID, preimage, tx hash, etc.
+    payment_proof VARCHAR(500),             -- meter event ID, charge ID, preimage, etc.
     latency_ms INT,
     schema_valid BOOLEAN,
     created_at DATETIME,
-    FOREIGN KEY (tool_id) REFERENCES tools(id)
+    FOREIGN KEY (tool_id) REFERENCES tool_listings(id),
+    FOREIGN KEY (caller_account) REFERENCES accounts(id)
 );
 
 -- Reputation (computed, cached, recomputed periodically)
@@ -479,7 +780,7 @@ CREATE TABLE reputation (
     unique_callers INT DEFAULT 0,
     total_invocations INT DEFAULT 0,
     computed_at DATETIME,
-    FOREIGN KEY (tool_id) REFERENCES tools(id)
+    FOREIGN KEY (tool_id) REFERENCES tool_listings(id)
 );
 ```
 
@@ -487,8 +788,8 @@ CREATE TABLE reputation (
 
 Every table above gets **Git-style version control for free**:
 
-- `SELECT * FROM tools AS OF '2026-03-01'` — what tools existed on March 1st?
-- `SELECT * FROM dolt_diff('main~5', 'main', 'tools')` — what tools changed in the last 5 commits?
+- `SELECT * FROM tool_listings AS OF '2026-03-01'` — what tools existed on March 1st?
+- `SELECT * FROM dolt_diff('main~5', 'main', 'tool_listings')` — what tools changed in the last 5 commits?
 - Branch a tool's schema to test changes, merge when validated
 - `dolt clone` the registry for offline agent operation
 - `dolt push` to DoltHub for public federation
@@ -503,32 +804,41 @@ Every table above gets **Git-style version control for free**:
 
 ```
 1. Company already has their tool running (API, MCP server, whatever)
-2. They submit a tool record (JSON) to the Dolt registry:
+2. They sign up at toolbox.sh
+3. Toolbox creates a Stripe Account v2 with `merchant` config
+4. Company completes Stripe onboarding (identity, bank account)
+5. They submit a tool record (JSON) to the Dolt registry:
    - What it does (schema)
    - Where it lives (endpoint)
    - How to call it (protocol)
    - What it costs (pricing in USD)
-   - How to pay (Stripe meter ID)
-3. They verify domain ownership (DNS TXT record or .well-known)
-4. That's it. No SDK. No middleware. No infrastructure changes.
+   - Their Account ID (for payment routing)
+6. They verify domain ownership (DNS TXT record or .well-known)
+7. That's it. No SDK. No middleware. No infrastructure changes.
+   If they also want to USE tools, they add `customer` config
+   to the same account — one identity for both sides.
 ```
 
 ### For an Agent Using a Tool
 
 ```
 1. Agent needs fraud detection for a financial analysis task
-2. Queries the Dolt-backed registry:
+2. Queries the Dolt-backed registry via toolbox_search:
    "capabilities LIKE '%fraud%' AND pricing.currency = 'usd'
     AND sla.p99_latency_ms < 500
     ORDER BY reputation.avg_quality DESC"
 3. Gets back matching tools, ranked by quality and price
 4. Validates the schema matches its needs (lexicon validation)
-5. Reads the payment field: provider accepts Stripe metered billing
-6. Agent calls the tool at the provider's endpoint (MCP/REST/whatever)
-7. Gateway reports usage to Stripe's metering API
-8. Gets the result, validates against schema
-9. Creates an invocation record in the Dolt ledger
-10. Creates an upvote record in the registry (with proof-of-use)
+5. Reads the payment field: provider accepts Stripe Connect
+6. Gateway checks operator's credit balance (local, fast):
+   - $0.005 call → credit drawdown path (no Stripe round-trip)
+   - Gateway calls the provider's endpoint
+   - On success: reports meter event to Stripe (async)
+   - On failure: no meter event, no charge, failure logged
+7. Dolt ledger records the invocation (the proof layer)
+8. Agent calls toolbox_review with proof-of-use
+9. Credits draw down at invoice finalization
+10. Stripe transfers provider's share on their payout schedule
 ```
 
 ### The Feedback Loop
@@ -552,26 +862,124 @@ the provider              quality / speed / reliability
 
 ---
 
+## Business Model
+
+### The Platform Play
+
+The Toolbox is a **Stripe Connect platform for AI tool calls**. The hosted service at toolbox.sh handles discovery, payment, and reputation — and takes a platform fee on every tool call routed through it. Stripe's Accounts v2, Billing Credits, Billing Meters, and Platform Pricing Tool handle almost all the financial plumbing — the Toolbox focuses on the registry, gateway, and ledger.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  toolbox.sh (the hosted service)                         │
+│                                                          │
+│  - Public registry (Dolt, clonable by anyone)            │
+│  - Hosted gateway (Stripe Connect, volume-tiered fees)   │
+│  - Billing Credits for fast-path micropayments           │
+│  - Billing Meters for async usage tracking               │
+│  - Platform Pricing Tool for no-code fee management      │
+│  - Discovery, reputation, all the materialized views     │
+│  - You sign up, get a TOOLBOX_ACCOUNT_ID, done           │
+│                                                          │
+│  "The easy button"                                       │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+                      dolt clone
+                           │
+┌──────────────────────────▼──────────────────────────────┐
+│  your-company's private Toolbox                          │
+│                                                          │
+│  - Your own registry (fork of public, or from scratch)   │
+│  - Your own gateway (your own Stripe, your fees)         │
+│  - Internal tools that never touch the public registry   │
+│  - You control everything                                │
+└─────────────────────────────────────────────────────────┘
+```
+
+Nobody complains that GitHub is "centralized" because Git is open and you can leave. Same energy. The Toolbox is honestly centralized where it provides value, and honestly open where it matters.
+
+### Revenue Streams
+
+**Platform fee (MVP, bread and butter)**: Volume-tiered application fees on every tool call routed through the hosted gateway. Managed via Stripe's Platform Pricing Tool — no code changes to adjust tiers. Default 15%, scaling down to 8% for high-volume providers. Agent operator gets one bill from Toolbox.
+
+**Billing Credits margin (MVP)**: Operators pre-fund credit balances. The Toolbox holds the float between credit purchase and provider payout. At scale, this is meaningful.
+
+**Premium discovery (growth)**: Providers pay for promoted placement in `toolbox_search` results. Transparent and labeled — the Dolt registry makes it auditable.
+
+**Enterprise self-hosted (later)**: "Run your own Toolbox" with SLA, support, and managed updates. Like GitLab Enterprise or Confluent for Kafka.
+
+### Value Props
+
+**For a tool provider**: "List your tool once, get discovered by every agent. We handle billing. You get a Stripe deposit. One Account ID, whether you're selling or buying."
+
+**For an agent operator**: "One config line, access to every tool. Pre-fund credits, set a budget, done. One bill from Toolbox."
+
+**For an enterprise**: "Start with our hosted version. When you need control, clone everything and run it yourself. Nothing is trapped."
+
+### Self-Hosted
+
+An enterprise that outgrows the hosted platform — or just wants control — runs their own:
+
+```
+1. Clone the public registry: dolt clone toolbox/registry
+2. Add internal tools (never published publicly)
+3. Run your own gateway (your own Stripe Connect, or no Stripe at all)
+4. Point agents at your gateway
+5. Pull from the public registry for third-party tools
+6. Push upvotes back to the public registry (or don't)
+```
+
+For internal tools, there's no payment needed — just auth. For external tools, the enterprise negotiates directly with providers or routes through the public gateway. The software is open, the data is open, the hosted service is the product.
+
+### Why Customers Stay on Hosted
+
+Even though they _could_ leave:
+
+- The providers are already onboarded (network effect)
+- The reputation data already exists (cold start problem solved)
+- Stripe Connect, Billing Credits, Meters, tax, invoicing — handled
+- Gateway infrastructure — no ops burden
+- Credit balance management, budget controls — built in
+- Platform Pricing Tool — fee tiers without engineering work
+- Reputation views, trending, discovery algorithms — computed for you
+- Leaving means rebuilding all of that yourself
+
+### The Competitive Moat Over Time
+
+```
+Stage 1 (MVP):     Stripe Connect platform fee — we're the billing layer
+                   Credit balances solve the latency problem
+Stage 2 (Growth):  Network effects — providers and agents concentrate here
+                   Billing Credits float generates margin
+Stage 3 (Mature):  L402/Cashu bypass Stripe — we compete on discovery + reputation
+                   Registry data + reputation graph are the real assets
+Stage 4 (Scale):   The registry IS the moat — like npm, whoever has the packages wins
+                   Gateway becomes optional; the data layer is everything
+```
+
+The key tension: as L402/Cashu mature, agents can pay providers directly and cut the Toolbox out of the payment loop entirely. This is by design. The Toolbox must always earn its place by providing value — discovery, reputation, convenience — not by being a required intermediary. If the only reason people use the hosted service is because they can't pay without it, the platform is fragile. If they use it because it's genuinely the easiest and best way to find and use tools, it's durable.
+
+---
+
 ## Adoption Tiers
 
 The Toolbox has a two-tier adoption model. Companies start with the simplest possible on-ramp and upgrade when the value is proven.
 
-### Tier 1: Dolt Registry (MVP)
+### Tier 1: Dolt Registry + Hosted Gateway (MVP)
 
-The lowest-friction path. A company submits a JSON tool record directly to the Dolt registry — via CLI, API, or a PR to a DoltHub repo. Identity is domain-verified the old-fashioned way: DNS TXT record or `.well-known/toolbox.json`.
+The lowest-friction path. A company onboards with Toolbox (Stripe Connected Account), submits a JSON tool record to the Dolt registry — via CLI, API, or a PR to a DoltHub repo — and they're discoverable. Identity is domain-verified the old-fashioned way: DNS TXT record or `.well-known/toolbox.json`.
 
 - **Identity**: Domain ownership (e.g., `acme.com`)
-- **Payment**: Stripe metered billing (USD)
+- **Payment**: Stripe Connect via the Toolbox hosted gateway (USD)
 - **Discovery**: SQL queries against the Dolt registry
 - **Reputation**: Proof-of-use upvotes in the Dolt registry
-- **Requires**: A JSON file and a domain you own. That's it.
+- **Requires**: A JSON file, a domain you own, and a Stripe account. That's it.
 
 ### Tier 2: AT Protocol Integration (Upgrade)
 
 When a company wants portable identity, richer federation, and the full distributed data model, they upgrade to a DID and optionally publish records to a PDS. Their domain-verified identity transfers cleanly — AT Protocol already uses domain handles.
 
 - **Identity**: DID anchored to domain (e.g., `did:plc:acme-corp` → `@acme.com`)
-- **Payment**: Stripe + future machine-native methods (Lightning, Cashu)
+- **Payment**: Stripe Connect + future machine-native methods (Lightning, Cashu)
 - **Discovery**: Toolbox feeds + cross-network queries via `at://` URIs
 - **Reputation**: Upvotes in caller's own repo — portable across registries
 
@@ -595,23 +1003,25 @@ The Dolt backbone makes this seamless — both tiers write to the same tables. A
 - **Not an MCP replacement**: MCP, REST, gRPC are invocation protocols. The Toolbox is discovery, payment, and reputation. They're complementary — invocation protocol is just a field in the tool record.
 - **Not a blockchain**: Dolt is a database with Git semantics. It's versioned, auditable, and tamper-evident, but it's not a distributed consensus system. Federation happens via Dolt remotes (like Git remotes), not consensus.
 - **Not a Bluesky app**: The Toolbox uses AT Protocol's design patterns (records, lexicons, DIDs) but does not depend on Bluesky's infrastructure, social graph, or relay network. Interoperability with Bluesky is possible but not a goal.
-- **Not centralized**: The registry is a Dolt database anyone can clone. Anyone can run their own registry node, compute reputation, or build a discovery algorithm.
+- **Not inescapably centralized**: The hosted service at toolbox.sh is honestly centralized — it's a Stripe Connect platform that takes a cut. But the registry is a Dolt database anyone can clone. The gateway is open source anyone can run. Anyone can stand up their own Toolbox instance, compute their own reputation, or build their own discovery algorithm. The centralization provides value; the exit is real.
 
 ---
 
 ## The Analogies
 
-| Existing System   | Toolbox Equivalent                                                  |
-| ----------------- | ------------------------------------------------------------------- |
-| DNS               | Tool discovery — resolve a capability to an endpoint                |
-| TLS certificates  | Domain verification / DIDs — verify you're talking to who you think |
-| npm registry      | Tool registry — search, install, version                            |
-| App Store ratings | Reputation — but only from verified purchasers                      |
-| Stripe Connect    | Payment — metered billing, the provider declares how to pay         |
-| Google PageRank   | Discovery algorithms — anyone can rank tools differently            |
-| Git + GitHub      | Dolt + DoltHub — version control for the registry and ledger        |
+| Existing System   | Toolbox Equivalent                                                        |
+| ----------------- | ------------------------------------------------------------------------- |
+| DNS               | Tool discovery — resolve a capability to an endpoint                      |
+| TLS certificates  | Domain verification / DIDs — verify you're talking to who you think       |
+| npm registry      | Tool registry — search, install, version                                  |
+| Unison hashes     | Content-addressed tool definitions — no version conflicts by construction |
+| App Store ratings | Reputation — but only from verified purchasers                            |
+| Stripe Connect    | Payment — platform handles billing, provider gets deposited directly      |
+| Shopify           | Honestly centralized — you could build your own store, but why would you? |
+| Google PageRank   | Discovery algorithms — anyone can rank tools differently                  |
+| Git + GitHub      | Dolt + DoltHub — version control for the registry and ledger              |
 
-Or more concisely: **npm + Stripe + Dolt, for AI agent tool calls, with AT Protocol's data philosophy.**
+Or more concisely: **npm + Stripe Connect + Dolt, for AI agent tool calls, with AT Protocol's data philosophy.**
 
 ---
 
@@ -619,10 +1029,8 @@ Or more concisely: **npm + Stripe + Dolt, for AI agent tool calls, with AT Proto
 
 - **Lexicon governance**: Who defines `com.toolbox.*` lexicons? A foundation? A GitHub org? Follow AT Protocol norms — publish early, evolve carefully, let the ecosystem fork if needed.
 - **Relay economics**: Who runs the relays that index tool records and upvotes? Likely the same model as AT Protocol relays — some public, some private, some subsidized by tool providers who want discovery.
-- **Agent wallets**: Not as hard as it sounds. V1 is just a Stripe customer ID with a spending cap — the same pattern as OpenAI's API billing. V2 adds per-agent budgets enforced at the gateway. V3 introduces prepaid balances (Stripe customer balance or Cashu tokens). V4 is autonomous agents with their own funds (Lightning, Cashu). The Toolbox architecture doesn't change across these stages — only what's behind the `STRIPE_CUSTOMER_ID` env var.
-- **Schema evolution**: When a tool's input/output changes, how do we handle backward compatibility? Follow lexicon rules — additive changes only, breaking changes get a new lexicon name.
-- **Privacy**: Invocation logs contain sensitive data (what tools an agent used, for what task). The Dolt ledger could be local-only, with only upvotes (which are intentionally public) going to the shared registry.
-- **Dispute resolution**: What if a tool takes payment but returns garbage? The proof-of-use in upvotes creates a public record. Downvotes (low quality scores) with valid payment proofs are strong signals. But formal dispute resolution is an open design problem.
+- **Settlement cadence**: When operators pre-fund credits, the platform holds the float until provider payout. Daily? Weekly? Real-time? Provider trust correlates with payout speed. The Dolt ledger makes any cadence auditable.
+- **Dispute resolution beyond automated refunds**: Clear-cut failures (errors, timeouts, schema violations) trigger automatic refunds. But what about gray areas — tool returned _something_ but it was wrong? The Dolt ledger + Stripe meter reconciliation gives both parties auditable evidence. Formal arbitration is still an open design problem.
 
 ---
 
@@ -636,7 +1044,15 @@ Or more concisely: **npm + Stripe + Dolt, for AI agent tool calls, with AT Proto
 - **Gas Town Federation**: https://github.com/steveyegge/gastown/blob/main/docs/design/federation.md
 - **Dolt DB**: https://docs.dolthub.com/introduction/what-is-dolt
 - **Dolt Use Cases**: https://www.dolthub.com/blog/2024-10-15-dolt-use-cases/
+- **Unison Programming Language — The Big Idea**: https://www.unison-lang.org/docs/the-big-idea/
 - **L402 (HTTP 402 + Lightning)**: https://docs.lightning.engineering/the-lightning-network/l402
 - **Cashu (ecash)**: https://cashu.space
 - **Bluesky Lexicons**: https://atproto.com/guides/lexicon
 - **pdsls (AT Protocol file browser)**: https://pdsls.dev
+- **Stripe Agent Toolkit**: https://github.com/stripe/ai
+- **Stripe Accounts v2 API**: https://docs.stripe.com/connect/accounts-v2
+- **Stripe Billing Credits**: https://docs.stripe.com/billing/subscriptions/usage-based/billing-credits
+- **Stripe Billing Meters**: https://docs.stripe.com/billing/subscriptions/usage-based/recording-usage
+- **Stripe Platform Pricing Tool**: https://docs.stripe.com/connect/platform-pricing-tools
+- **Stripe Destination Charges**: https://docs.stripe.com/connect/destination-charges
+- **Stripe MCP Server**: https://mcp.stripe.com

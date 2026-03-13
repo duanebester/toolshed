@@ -1077,6 +1077,7 @@
           <a href="#problem">Problem</a>
           <a href="#architecture">Architecture</a>
           <a href="#records">Records</a>
+          <a href="#versioning">Versioning</a>
           <a href="#payment">Payment</a>
           <a href="#reputation">Reputation</a>
           <a href="#how-it-works">How It Works</a>
@@ -1224,7 +1225,7 @@
     <section style="background: var(--bg-raised)">
       <div class="container reveal">
         <div class="section-label">Inspirations</div>
-        <h2>Built on the shoulders of three big ideas</h2>
+        <h2>Built on the shoulders of four big ideas</h2>
 
         <div class="insp-card">
           <h4>
@@ -1364,6 +1365,48 @@
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div class="insp-card">
+          <h4>
+            <span
+              class="insp-tag"
+              style="background: var(--purple-dim, rgba(168,85,247,0.15)); color: var(--purple, #c084fc)"
+              >Versioning</span
+            >
+            Unison Programming Language
+          </h4>
+          <p style="color: var(--text-dim); font-size: 0.92rem">
+            A language where every definition is identified by a hash of its
+            syntax tree, not by its name. Names are just metadata &mdash;
+            pointers to hashes.
+          </p>
+          <ul>
+            <li>
+              <strong>No version conflicts</strong> &mdash; two versions of a
+              function are just two different hashes that coexist
+            </li>
+            <li>
+              <strong>No builds break</strong> &mdash; dependencies are pinned
+              by hash, not by name
+            </li>
+            <li>
+              <strong>Immutable definitions</strong> &mdash; once a definition
+              exists at a hash, it never changes
+            </li>
+            <li>
+              <strong>Names are pointers</strong> &mdash; mutable metadata
+              pointing to immutable content
+            </li>
+          </ul>
+          <blockquote>
+            <p>
+              &ldquo;What we now think of as a dependency conflict is instead
+              just a situation where there are multiple terms or types that serve
+              a similar purpose.&rdquo; The Toolbox applies this to tool
+              schemas.
+            </p>
+          </blockquote>
         </div>
       </div>
     </section>
@@ -1585,19 +1628,18 @@
 
         <h3>The Tool Record</h3>
         <p>
-          A company registers a tool by submitting a JSON record to the Dolt
-          registry:
+          A company registers a tool in two parts: an immutable
+          <strong>definition</strong> (the contract) and a mutable
+          <strong>listing</strong> (the metadata). The registry hashes the
+          definition to produce a <code>content_hash</code> &mdash; the tool's
+          true identity.
         </p>
 
         <div class="code-block">
           <div class="code-header">
-            com.toolbox.tool/fraud-detection-v3 @ acme.com
+            definition (immutable, keyed by content_hash)
           </div>
           <pre><span class="p">{</span>
-  <span class="k">"name"</span>: <span class="s">"Fraud Detection"</span>,
-  <span class="k">"version"</span>: <span class="s">"3.1.0"</span>,
-  <span class="k">"description"</span>: <span class="s">"Real-time transaction fraud scoring with ML"</span>,
-
   <span class="k">"provider"</span>: <span class="p">{</span>
     <span class="k">"domain"</span>: <span class="s">"acme.com"</span>,
     <span class="k">"did"</span>: <span class="s">"did:plc:acme-corp"</span>
@@ -1615,9 +1657,32 @@
     <span class="p">}</span>
   <span class="p">}</span>,
 
-  <span class="k">"pricing"</span>: <span class="p">{</span> <span class="k">"model"</span>: <span class="s">"per_call"</span>, <span class="k">"price"</span>: <span class="n">0.005</span>, <span class="k">"currency"</span>: <span class="s">"usd"</span> <span class="p">}</span>,
+  <span class="k">"invocation"</span>: <span class="p">{</span>
+    <span class="k">"protocol"</span>: <span class="s">"mcp"</span>,
+    <span class="k">"endpoint"</span>: <span class="s">"https://tools.acme.com/mcp"</span>,
+    <span class="k">"tool_name"</span>: <span class="s">"fraud_check"</span>
+  <span class="p">}</span>,
+
   <span class="k">"capabilities"</span>: [<span class="s">"fraud"</span>, <span class="s">"ml"</span>, <span class="s">"financial"</span>, <span class="s">"real-time"</span>],
   <span class="k">"createdAt"</span>: <span class="s">"2026-03-01T00:00:00Z"</span>
+<span class="p">}</span></pre>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header">
+            listing (mutable, points to definition)
+          </div>
+          <pre><span class="p">{</span>
+  <span class="k">"definition_hash"</span>: <span class="s">"sha256:a1b2c3d4e5f6..."</span>,
+
+  <span class="k">"name"</span>: <span class="s">"Fraud Detection"</span>,
+  <span class="k">"version_label"</span>: <span class="s">"3.1.0"</span>,
+  <span class="k">"description"</span>: <span class="s">"Real-time transaction fraud scoring with ML"</span>,
+
+  <span class="k">"pricing"</span>: <span class="p">{</span> <span class="k">"model"</span>: <span class="s">"per_call"</span>, <span class="k">"price"</span>: <span class="n">0.005</span>, <span class="k">"currency"</span>: <span class="s">"usd"</span> <span class="p">}</span>,
+
+  <span class="k">"sla"</span>: <span class="p">{</span> <span class="k">"p99_latency_ms"</span>: <span class="n">500</span>, <span class="k">"uptime"</span>: <span class="s">"99.9%"</span> <span class="p">}</span>,
+  <span class="k">"updatedAt"</span>: <span class="s">"2026-03-01T00:00:00Z"</span>
 <span class="p">}</span></pre>
         </div>
 
@@ -1654,9 +1719,14 @@
         <h3>Summary of Record Types</h3>
         <div class="record-grid">
           <div class="record-item">
-            <h5>Tool Registration</h5>
+            <h5>Tool Definition</h5>
+            <div class="record-path">tool_definitions (by content hash)</div>
+            <p>Immutable contract: schema, invocation, capabilities</p>
+          </div>
+          <div class="record-item">
+            <h5>Tool Listing</h5>
             <div class="record-path">com.toolbox.tool/</div>
-            <p>"Here's my tool, schema, pricing, and how to pay"</p>
+            <p>Mutable metadata: name, pricing, SLA &mdash; points to a definition</p>
           </div>
           <div class="record-item">
             <h5>Schema / Lexicon</h5>
@@ -1672,6 +1742,68 @@
             <h5>Upvote</h5>
             <div class="record-path">com.toolbox.tool.upvote/</div>
             <p>Quality signal with proof-of-use</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VERSIONING -->
+    <section id="versioning">
+      <div class="container reveal">
+        <div class="section-label">Versioning</div>
+        <h2>Content-addressed tools</h2>
+        <p>
+          Inspired by the
+          <a href="https://www.unison-lang.org/docs/the-big-idea/" target="_blank" rel="noopener">Unison programming language</a>,
+          tool definitions are identified by a <strong>hash of their content</strong>,
+          not by a name or version number. Names and version labels are mutable
+          metadata that point to immutable hashes.
+        </p>
+
+        <div class="problem-grid" style="margin-top: 2rem">
+          <div class="problem-card">
+            <h4>No breaking changes</h4>
+            <p>
+              New schema &rarr; new hash &rarr; new definition. Old hash still
+              exists. Agents pinned to the old hash keep working.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>No version conflicts</h4>
+            <p>
+              Two definitions with different schemas are different hashes. They
+              coexist. No coordination needed.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Agents pin by hash</h4>
+            <p>
+              After a successful call, an agent stores
+              <code>sha256:abc123</code> &mdash; immutable and precise. Names
+              can change; the hash is stable.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Deduplication</h4>
+            <p>
+              Two providers with the same schema and contract share a content
+              hash. Discovery surfaces both providers for one definition.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>No deprecation flags</h4>
+            <p>
+              Old hashes just exist. Stale reputation naturally pushes agents
+              toward newer definitions.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Dolt makes it seamless</h4>
+            <p>
+              <code>tool_definitions</code> is append-only.
+              <code>dolt_history_tool_listings</code> tracks every pointer
+              change. <code>AS OF</code> queries reproduce any point in time.
+            </p>
           </div>
         </div>
       </div>
@@ -1870,19 +2002,35 @@
 
         <div class="code-block">
           <div class="code-header">registry schema (SQL)</div>
-          <pre><span class="c">-- Tool registrations</span>
-<span class="k">CREATE TABLE</span> <span class="t">tools</span> (
-    id               <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
-    provider_domain  <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    provider_did     <span class="t">VARCHAR</span>(<span class="n">255</span>),           <span class="c">-- Tier 2, nullable</span>
-    name             <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    version          <span class="t">VARCHAR</span>(<span class="n">32</span>) <span class="k">NOT NULL</span>,
-    schema_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    invocation_json  <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    pricing_json     <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    payment_json     <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    capabilities     <span class="t">JSON</span>,
-    created_at       <span class="t">DATETIME</span>
+          <pre><span class="c">-- Tool definitions (immutable, content-addressed)</span>
+<span class="c">-- Append-only: rows are never updated or deleted</span>
+<span class="k">CREATE TABLE</span> <span class="t">tool_definitions</span> (
+    content_hash      <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">PRIMARY KEY</span>,    <span class="c">-- sha256 of (schema + invocation + provider)</span>
+    provider_domain   <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    provider_did      <span class="t">VARCHAR</span>(<span class="n">255</span>),                <span class="c">-- Tier 2, nullable</span>
+    schema_json       <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    invocation_json   <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    capabilities      <span class="t">JSON</span>,
+    created_at        <span class="t">DATETIME</span>
+);
+
+<span class="c">-- Tool listings (mutable, human-readable metadata)</span>
+<span class="c">-- Points to a tool_definition via content_hash</span>
+<span class="k">CREATE TABLE</span> <span class="t">tool_listings</span> (
+    id                <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
+    definition_hash   <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,       <span class="c">-- points to tool_definitions.content_hash</span>
+    provider_domain   <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    provider_did      <span class="t">VARCHAR</span>(<span class="n">255</span>),                <span class="c">-- Tier 2, nullable</span>
+    name              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    version_label     <span class="t">VARCHAR</span>(<span class="n">32</span>),                 <span class="c">-- cosmetic, like a Git tag</span>
+    description       <span class="t">TEXT</span>,
+    pricing_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    payment_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
+    sla_json          <span class="t">JSON</span>,
+    capabilities      <span class="t">JSON</span>,
+    created_at        <span class="t">DATETIME</span>,
+    updated_at        <span class="t">DATETIME</span>,
+    <span class="k">FOREIGN KEY</span> (definition_hash) <span class="k">REFERENCES</span> tool_definitions(content_hash)
 );
 
 <span class="c">-- Upvotes (proof-of-use quality signals)</span>
@@ -1894,14 +2042,15 @@
     proof_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
     context_json    <span class="t">JSON</span>,
     created_at      <span class="t">DATETIME</span>,
-    <span class="k">FOREIGN KEY</span> (tool_id) <span class="k">REFERENCES</span> tools(id)
+    <span class="k">FOREIGN KEY</span> (tool_id) <span class="k">REFERENCES</span> tool_listings(id)
 );
 
 <span class="c">-- Invocation ledger</span>
 <span class="k">CREATE TABLE</span> <span class="t">invocations</span> (
     id              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
-    tool_id         <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    input_hash      <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,
+    tool_id           <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    definition_hash   <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,       <span class="c">-- exact definition called (immutable pin)</span>
+    input_hash        <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,
     output_hash     <span class="t">VARCHAR</span>(<span class="n">64</span>),
     payment_proof   <span class="t">VARCHAR</span>(<span class="n">500</span>),
     latency_ms      <span class="t">INT</span>,
@@ -2291,6 +2440,13 @@
             target="_blank"
             rel="noopener"
             >Dolt DB &mdash; Use Cases
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
+          <a
+            href="https://www.unison-lang.org/docs/the-big-idea/"
+            target="_blank"
+            rel="noopener"
+            >Unison &mdash; The Big Idea (content-addressed code)
             <i data-lucide="external-link" class="lucide-inline"></i
           ></a>
           <a
