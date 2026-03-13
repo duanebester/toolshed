@@ -1052,7 +1052,7 @@
     <nav>
       <div class="nav-inner">
         <div class="logo">
-          <div class="icon"><i data-lucide="zap"></i></div>
+          <div class="icon"><i data-lucide="wrench"></i></div>
           <span>Agent Toolbox</span>
         </div>
         <button
@@ -1092,7 +1092,7 @@
     <section class="hero">
       <div class="hero-content">
         <div class="hero-badge">
-          <i data-lucide="wrench" class="lucide-inline"></i> Decentralized Tool
+          <i data-lucide="blocks" class="lucide-inline"></i> Decentralized Tool
           Registry for AI Agents
         </div>
         <h1>The Agent Toolbox</h1>
@@ -1371,7 +1371,10 @@
           <h4>
             <span
               class="insp-tag"
-              style="background: var(--purple-dim, rgba(168,85,247,0.15)); color: var(--purple, #c084fc)"
+              style="
+                background: var(--purple-dim, rgba(168, 85, 247, 0.15));
+                color: var(--purple, #c084fc);
+              "
               >Versioning</span
             >
             Unison Programming Language
@@ -1402,8 +1405,8 @@
           <blockquote>
             <p>
               &ldquo;What we now think of as a dependency conflict is instead
-              just a situation where there are multiple terms or types that serve
-              a similar purpose.&rdquo; The Toolbox applies this to tool
+              just a situation where there are multiple terms or types that
+              serve a similar purpose.&rdquo; The Toolbox applies this to tool
               schemas.
             </p>
           </blockquote>
@@ -1669,9 +1672,7 @@
         </div>
 
         <div class="code-block">
-          <div class="code-header">
-            listing (mutable, points to definition)
-          </div>
+          <div class="code-header">listing (mutable, points to definition)</div>
           <pre><span class="p">{</span>
   <span class="k">"definition_hash"</span>: <span class="s">"sha256:a1b2c3d4e5f6..."</span>,
 
@@ -1726,7 +1727,10 @@
           <div class="record-item">
             <h5>Tool Listing</h5>
             <div class="record-path">com.toolbox.tool/</div>
-            <p>Mutable metadata: name, pricing, SLA &mdash; points to a definition</p>
+            <p>
+              Mutable metadata: name, pricing, SLA &mdash; points to a
+              definition
+            </p>
           </div>
           <div class="record-item">
             <h5>Schema / Lexicon</h5>
@@ -1754,10 +1758,15 @@
         <h2>Content-addressed tools</h2>
         <p>
           Inspired by the
-          <a href="https://www.unison-lang.org/docs/the-big-idea/" target="_blank" rel="noopener">Unison programming language</a>,
-          tool definitions are identified by a <strong>hash of their content</strong>,
-          not by a name or version number. Names and version labels are mutable
-          metadata that point to immutable hashes.
+          <a
+            href="https://www.unison-lang.org/docs/the-big-idea/"
+            target="_blank"
+            rel="noopener"
+            >Unison programming language</a
+          >, tool definitions are identified by a
+          <strong>hash of their content</strong>, not by a name or version
+          number. Names and version labels are mutable metadata that point to
+          immutable hashes.
         </p>
 
         <div class="problem-grid" style="margin-top: 2rem">
