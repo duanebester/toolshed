@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The Agent Toolbox</title>
+    <title>ToolShed</title>
     <meta
       name="description"
       content="A decentralized registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
@@ -1053,7 +1053,7 @@
       <div class="nav-inner">
         <div class="logo">
           <div class="icon"><i data-lucide="wrench"></i></div>
-          <span>Agent Toolbox</span>
+          <span>ToolShed</span>
         </div>
         <button
           class="menu-toggle"
@@ -1095,7 +1095,7 @@
           <i data-lucide="blocks" class="lucide-inline"></i> Decentralized Tool
           Registry for AI Agents
         </div>
-        <h1>The Agent Toolbox</h1>
+        <h1>ToolShed</h1>
         <p class="subtitle">
           A decentralized registry where companies list tools, agents discover
           and pay for them, and reputation emerges from verified usage &mdash;
@@ -1117,12 +1117,12 @@
             ><br />
             {<br />
             &nbsp;&nbsp;<span class="key">"mcpServers"</span>: {<br />
-            &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"toolbox"</span>: {<br />
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"toolshed"</span>: {<br />
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key"
               >"command"</span
             >: <span class="str">"npx"</span>,<br />
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"args"</span>:
-            [<span class="str">"@agent-toolbox/mcp-server"</span>],<br />
+            [<span class="str">"@toolshed/mcp-server"</span>],<br />
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"env"</span>:
             { <span class="key">"STRIPE_CUSTOMER_ID"</span>:
             <span class="str">"cus_abc123"</span> }<br />
@@ -1241,7 +1241,7 @@
           </h4>
           <p style="color: var(--text-dim); font-size: 0.92rem">
             Dan Abramov's article reframes AT Protocol as a distributed
-            filesystem for social computing. The Toolbox borrows its design
+            filesystem for social computing. The ToolShed borrows its design
             patterns &mdash; but doesn't depend on Bluesky's infrastructure.
           </p>
           <ul>
@@ -1323,7 +1323,7 @@
               <thead>
                 <tr>
                   <th>Feature</th>
-                  <th>Application in Toolbox</th>
+                  <th>Application in ToolShed</th>
                 </tr>
               </thead>
               <tbody>
@@ -1406,7 +1406,7 @@
             <p>
               &ldquo;What we now think of as a dependency conflict is instead
               just a situation where there are multiple terms or types that
-              serve a similar purpose.&rdquo; The Toolbox applies this to tool
+              serve a similar purpose.&rdquo; The ToolShed applies this to tool
               schemas.
             </p>
           </blockquote>
@@ -1420,14 +1420,14 @@
         <div class="section-label">The On-Ramp</div>
         <h2>It's just another MCP server</h2>
         <p>
-          The Toolbox doesn't change the pattern developers already use &mdash;
+          The ToolShed doesn't change the pattern developers already use &mdash;
           it <em>is</em> that pattern. Add one config entry and your agent has
           access to every tool in the registry. No new paradigm, no behavioral
           shift.
         </p>
 
         <h3>The Meta-Tools</h3>
-        <p>The Toolbox exposes a small set of meta-tools:</p>
+        <p>The ToolShed exposes a small set of meta-tools:</p>
         <div
           class="problem-grid"
           style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))"
@@ -1440,7 +1440,7 @@
                 color: var(--accent-bright);
               "
             >
-              toolbox_search
+              toolshed_search
             </h4>
             <p>Find tools by capability, price, latency, reputation</p>
           </div>
@@ -1452,7 +1452,7 @@
                 color: var(--green);
               "
             >
-              toolbox_invoke
+              toolshed_invoke
             </h4>
             <p>
               Call a tool &mdash; handles payment, schema validation, logging
@@ -1466,7 +1466,7 @@
                 color: var(--orange);
               "
             >
-              toolbox_reputation
+              toolshed_reputation
             </h4>
             <p>Check reliability, quality scores, SLA compliance</p>
           </div>
@@ -1478,7 +1478,7 @@
                 color: var(--pink);
               "
             >
-              toolbox_review
+              toolshed_review
             </h4>
             <p>Submit a proof-of-use upvote after using a tool</p>
           </div>
@@ -1496,33 +1496,33 @@
             <p>
               Agent doesn't have a fraud tool &mdash; calls
               <code
-                >toolbox_search({ capabilities: ["fraud"], max_price: 0.01
+                >toolshed_search({ capabilities: ["fraud"], max_price: 0.01
                 })</code
               >
             </p>
           </div>
           <div class="flow-step">
-            <p>Toolbox returns ranked results from the Dolt registry</p>
+            <p>ToolShed returns ranked results from the Dolt registry</p>
           </div>
           <div class="flow-step">
             <p>
               Agent picks one, calls
               <code
-                >toolbox_invoke({ tool: "fraud-detection-v3@acme.com", input:
+                >toolshed_invoke({ tool: "fraud-detection-v3@acme.com", input:
                 {...} })</code
               >
             </p>
           </div>
           <div class="flow-step">
             <p>
-              Toolbox gateway handles Stripe payment, calls the endpoint,
+              ToolShed gateway handles Stripe payment, calls the endpoint,
               validates response
             </p>
           </div>
           <div class="flow-step">
             <p>
               Agent gets the result, uses it &mdash; then calls
-              <code>toolbox_review</code> with quality signal
+              <code>toolshed_review</code> with quality signal
             </p>
           </div>
         </div>
@@ -1531,7 +1531,7 @@
           <p>
             An agent that already has a hardcoded fraud tool will never search
             for fraud &mdash; it'll just use what it has. But the first time it
-            needs something it <em>doesn't</em> have, the Toolbox is right
+            needs something it <em>doesn't</em> have, the ToolShed is right
             there. <strong>Discovery happens organically at the edges.</strong>
           </p>
         </blockquote>
@@ -1698,10 +1698,10 @@
 
         <div class="code-block">
           <div class="code-header">
-            com.toolbox.tool.upvote/5kqw3x @ agent-company-xyz.com
+            com.toolshed.tool.upvote/5kqw3x @ agent-company-xyz.com
           </div>
           <pre><span class="p">{</span>
-  <span class="k">"subject"</span>: <span class="s">"com.toolbox.tool/fraud-detection-v3@acme.com"</span>,
+  <span class="k">"subject"</span>: <span class="s">"com.toolshed.tool/fraud-detection-v3@acme.com"</span>,
   <span class="k">"proof"</span>: <span class="p">{</span>
     <span class="k">"payment_method"</span>: <span class="s">"stripe"</span>,
     <span class="k">"stripe_invoice_id"</span>: <span class="s">"in_1abc123def456"</span>,
@@ -1726,7 +1726,7 @@
           </div>
           <div class="record-item">
             <h5>Tool Listing</h5>
-            <div class="record-path">com.toolbox.tool/</div>
+            <div class="record-path">com.toolshed.tool/</div>
             <p>
               Mutable metadata: name, pricing, SLA &mdash; points to a
               definition
@@ -1734,17 +1734,17 @@
           </div>
           <div class="record-item">
             <h5>Schema / Lexicon</h5>
-            <div class="record-path">com.toolbox.lexicon/</div>
+            <div class="record-path">com.toolshed.lexicon/</div>
             <p>Machine-readable input/output contract</p>
           </div>
           <div class="record-item">
             <h5>Invocation Log</h5>
-            <div class="record-path">com.toolbox.tool.invocation/</div>
+            <div class="record-path">com.toolshed.tool.invocation/</div>
             <p>Record of each call: input hash, output hash, timing</p>
           </div>
           <div class="record-item">
             <h5>Upvote</h5>
-            <div class="record-path">com.toolbox.tool.upvote/</div>
+            <div class="record-path">com.toolshed.tool.upvote/</div>
             <p>Quality signal with proof-of-use</p>
           </div>
         </div>
@@ -1861,10 +1861,10 @@
         </p>
         <div class="code-block">
           <div class="code-header">payment lexicon namespace examples</div>
-          <pre><span class="t">com.toolbox.defs</span><span class="c">#paymentStripe</span>       <span class="c">&larr; MVP</span>
-<span class="t">com.toolbox.defs</span><span class="c">#paymentFree</span>         <span class="c">&larr; open source</span>
-<span class="t">com.toolbox.defs</span><span class="c">#paymentLightning</span>    <span class="c">&larr; future: micropayments</span>
-<span class="t">com.toolbox.defs</span><span class="c">#paymentCashu</span>        <span class="c">&larr; future: bearer tokens</span>
+          <pre><span class="t">com.toolshed.defs</span><span class="c">#paymentStripe</span>       <span class="c">&larr; MVP</span>
+<span class="t">com.toolshed.defs</span><span class="c">#paymentFree</span>         <span class="c">&larr; open source</span>
+<span class="t">com.toolshed.defs</span><span class="c">#paymentLightning</span>    <span class="c">&larr; future: micropayments</span>
+<span class="t">com.toolshed.defs</span><span class="c">#paymentCashu</span>        <span class="c">&larr; future: bearer tokens</span>
 <span class="t">io.fedi.defs</span><span class="c">#paymentFedimint</span>         <span class="c">&larr; community-defined</span>
 <span class="t">xyz.newrail.defs</span><span class="c">#paymentWhatever</span>     <span class="c">&larr; anyone can extend</span></pre>
         </div>
@@ -1894,7 +1894,7 @@
 
 <span class="k">SELECT</span> <span class="t">AVG</span>(quality_score), <span class="t">COUNT</span>(*), <span class="t">COUNT</span>(<span class="k">DISTINCT</span> caller_domain)
 <span class="k">FROM</span> upvotes
-<span class="k">WHERE</span> tool_id = <span class="s">'com.toolbox.tool/fraud-detection-v3@acme.com'</span>
+<span class="k">WHERE</span> tool_id = <span class="s">'com.toolshed.tool/fraud-detection-v3@acme.com'</span>
   <span class="k">AND</span> proof_is_valid = <span class="n">true</span>    <span class="c">-- payment receipt checks out</span>
   <span class="k">AND</span> invocation_exists = <span class="n">true</span> <span class="c">-- hash found in ledger</span>
 
@@ -2212,7 +2212,7 @@
               <dt>Payment</dt>
               <dd>Stripe + Lightning, Cashu</dd>
               <dt>Discovery</dt>
-              <dd>Toolbox feeds + cross-network at:// queries</dd>
+              <dd>ToolShed feeds + cross-network at:// queries</dd>
               <dt>Reputation</dt>
               <dd>
                 Upvotes in caller's own repo &mdash; portable across registries
@@ -2240,11 +2240,11 @@
         <ul class="not-list">
           <li>
             <strong>Not a runtime</strong> &mdash; Tools run on the provider's
-            infrastructure. The Toolbox doesn't execute anything.
+            infrastructure. The ToolShed doesn't execute anything.
           </li>
           <li>
             <strong>Not an MCP replacement</strong> &mdash; MCP, REST, gRPC are
-            invocation protocols. The Toolbox is discovery, payment, and
+            invocation protocols. The ToolShed is discovery, payment, and
             reputation. They're complementary.
           </li>
           <li>
@@ -2276,7 +2276,7 @@
             <thead>
               <tr>
                 <th>You Know This</th>
-                <th>Toolbox Equivalent</th>
+                <th>ToolShed Equivalent</th>
               </tr>
             </thead>
             <tbody>
@@ -2341,7 +2341,7 @@
           <div class="problem-card">
             <h4>Lexicon Governance</h4>
             <p>
-              Who defines <code>com.toolbox.*</code> lexicons? A foundation? A
+              Who defines <code>com.toolshed.*</code> lexicons? A foundation? A
               GitHub org? Follow AT Protocol norms &mdash; publish early, evolve
               carefully.
             </p>
@@ -2487,7 +2487,7 @@
     <!-- FOOTER -->
     <footer>
       <p>
-        The Agent Toolbox &mdash;
+        ToolShed &mdash;
         <a
           href="https://github.com/duanebester/toolbox"
           target="_blank"
