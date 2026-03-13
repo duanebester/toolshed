@@ -1,0 +1,1500 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ToolShed — Pitch</title>
+    <meta
+      name="description"
+      content="The package manager for the agent economy."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #0a0a0f;
+        --bg-raised: #12121a;
+        --bg-card: #181824;
+        --bg-code: #0d0d15;
+        --border: #1e1e2e;
+        --border-bright: #2a2a3e;
+        --text: #e2e2ea;
+        --text-dim: #8888a0;
+        --text-muted: #5a5a72;
+        --accent: #6c5ce7;
+        --accent-bright: #a29bfe;
+        --accent-glow: rgba(108, 92, 231, 0.15);
+        --green: #00cec9;
+        --green-dim: rgba(0, 206, 201, 0.12);
+        --orange: #fdcb6e;
+        --orange-dim: rgba(253, 203, 110, 0.12);
+        --red: #ff7675;
+        --red-dim: rgba(255, 118, 117, 0.12);
+        --pink: #fd79a8;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-lg: 20px;
+        --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, monospace;
+      }
+      html {
+        scroll-behavior: smooth;
+        font-size: 16px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      body {
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.7;
+        overflow-x: hidden;
+      }
+      ::selection {
+        background: var(--accent);
+        color: #fff;
+      }
+      a {
+        color: var(--accent-bright);
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      a:hover {
+        color: #fff;
+      }
+
+      /* ── NAV ── */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background: rgba(10, 10, 15, 0.8);
+        border-bottom: 1px solid var(--border);
+      }
+      nav .nav-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+      }
+      nav .logo {
+        font-weight: 800;
+        font-size: 1.1rem;
+        letter-spacing: -0.03em;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text);
+      }
+      nav .logo .icon {
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, var(--accent), var(--green));
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+      }
+      nav .logo .icon svg {
+        width: 14px;
+        height: 14px;
+      }
+      .lucide-inline {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        stroke-width: 2;
+      }
+      nav .nav-links {
+        display: flex;
+        gap: 1.75rem;
+        align-items: center;
+      }
+      nav .nav-links a {
+        color: var(--text-dim);
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+      nav .nav-links a:hover {
+        color: #fff;
+      }
+      .nav-cta {
+        background: var(--accent) !important;
+        color: #fff !important;
+        padding: 0.45rem 1.1rem;
+        border-radius: var(--radius-sm);
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        transition: all 0.2s !important;
+      }
+      .nav-cta:hover {
+        background: var(--accent-bright) !important;
+        transform: translateY(-1px);
+      }
+      .menu-toggle {
+        display: none;
+        background: none;
+        border: none;
+        color: var(--text);
+        cursor: pointer;
+        padding: 0.5rem;
+      }
+
+      /* ── HERO ── */
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 8rem 2rem 6rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(
+          ellipse at 50% 30%,
+          rgba(108, 92, 231, 0.08) 0%,
+          transparent 50%
+        );
+        pointer-events: none;
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(
+          ellipse at 50% 80%,
+          rgba(0, 206, 201, 0.04) 0%,
+          transparent 50%
+        );
+        pointer-events: none;
+      }
+      .hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 860px;
+      }
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--accent-glow);
+        border: 1px solid rgba(108, 92, 231, 0.25);
+        color: var(--accent-bright);
+        padding: 0.4rem 1rem;
+        border-radius: 100px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 2rem;
+        letter-spacing: 0.02em;
+      }
+      .hero h1 {
+        font-size: clamp(3rem, 7vw, 5.5rem);
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        line-height: 1.05;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(
+          135deg,
+          #fff 0%,
+          var(--accent-bright) 50%,
+          var(--green) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .hero .subtitle {
+        font-size: clamp(1.05rem, 2vw, 1.3rem);
+        color: var(--text-dim);
+        max-width: 640px;
+        margin: 0 auto 2.5rem;
+        line-height: 1.7;
+        font-weight: 400;
+      }
+      .hero-cta-group {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.8rem 1.8rem;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: none;
+        font-family: var(--font-sans);
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: var(--accent-bright);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(108, 92, 231, 0.3);
+        color: #fff;
+      }
+      .btn-outline {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border-bright);
+      }
+      .btn-outline:hover {
+        border-color: var(--accent);
+        color: var(--accent-bright);
+        transform: translateY(-2px);
+      }
+
+      /* ── SECTIONS ── */
+      section {
+        padding: 6rem 2rem;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .section-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--accent-bright);
+        margin-bottom: 1rem;
+      }
+      .section-label::before {
+        content: "";
+        width: 2rem;
+        height: 1px;
+        background: var(--accent);
+      }
+      h2 {
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+        margin-bottom: 1.5rem;
+      }
+      h3 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 1rem;
+        margin-top: 2.5rem;
+      }
+      p {
+        margin-bottom: 1.25rem;
+        color: var(--text-dim);
+      }
+      p:last-child {
+        margin-bottom: 0;
+      }
+      p strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .highlight {
+        color: var(--accent-bright);
+        font-weight: 600;
+      }
+
+      /* ── PROBLEM CARDS ── */
+      .problem-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.25rem;
+        margin: 2rem 0;
+      }
+      .problem-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        transition: all 0.25s;
+      }
+      .problem-card:hover {
+        border-color: var(--border-bright);
+        transform: translateY(-2px);
+      }
+      .problem-card .icon-wrap {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-sm);
+        display: grid;
+        place-items: center;
+        margin-bottom: 1rem;
+      }
+      .problem-card .icon-wrap svg {
+        width: 20px;
+        height: 20px;
+      }
+      .problem-card h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: var(--text);
+      }
+      .problem-card p {
+        font-size: 0.88rem;
+        margin: 0;
+        color: var(--text-dim);
+        line-height: 1.6;
+      }
+
+      /* ── ARCH LAYERS ── */
+      .arch-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin: 2rem 0;
+      }
+      .arch-layer {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.75rem;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s;
+      }
+      .arch-layer:hover {
+        border-color: var(--border-bright);
+      }
+      .arch-layer::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 4px;
+      }
+      .arch-layer.l1::before {
+        background: var(--accent);
+      }
+      .arch-layer.l2::before {
+        background: var(--green);
+      }
+      .arch-layer.l3::before {
+        background: var(--orange);
+      }
+      .arch-layer .layer-num {
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin-bottom: 0.5rem;
+      }
+      .arch-layer.l1 .layer-num {
+        color: var(--accent-bright);
+      }
+      .arch-layer.l2 .layer-num {
+        color: var(--green);
+      }
+      .arch-layer.l3 .layer-num {
+        color: var(--orange);
+      }
+      .arch-layer h4 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+      }
+      .arch-layer .layer-desc {
+        color: var(--text-dim);
+        font-size: 0.88rem;
+        margin: 0;
+      }
+      .arch-layer .layer-bullets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+      .arch-layer .layer-bullets span {
+        font-size: 0.78rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 100px;
+        font-weight: 500;
+      }
+      .arch-layer.l1 .layer-bullets span {
+        background: var(--accent-glow);
+        color: var(--accent-bright);
+      }
+      .arch-layer.l2 .layer-bullets span {
+        background: var(--green-dim);
+        color: var(--green);
+      }
+      .arch-layer.l3 .layer-bullets span {
+        background: var(--orange-dim);
+        color: var(--orange);
+      }
+      .arch-connector {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 1.2rem;
+        line-height: 1;
+      }
+
+      /* ── FLOW STEPS ── */
+      .flow-steps {
+        counter-reset: flow;
+        margin: 2rem 0;
+      }
+      .flow-step {
+        display: flex;
+        gap: 1.25rem;
+        padding: 1rem 0;
+        align-items: flex-start;
+      }
+      .flow-step::before {
+        counter-increment: flow;
+        content: counter(flow);
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--accent-glow);
+        border: 1px solid rgba(108, 92, 231, 0.3);
+        display: grid;
+        place-items: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--accent-bright);
+      }
+      .flow-step p {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 0.92rem;
+        padding-top: 0.3rem;
+      }
+      .flow-step code {
+        background: var(--bg-code);
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        color: var(--green);
+      }
+
+      /* ── COMPETITOR CARDS ── */
+      .comp-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.25rem;
+        margin: 2rem 0;
+      }
+      .comp-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        transition: all 0.25s;
+      }
+      .comp-card:hover {
+        border-color: var(--border-bright);
+      }
+      .comp-card .comp-type {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+      }
+      .comp-card h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 0.5rem;
+      }
+      .comp-card p {
+        font-size: 0.85rem;
+        margin: 0;
+        color: var(--text-dim);
+        line-height: 1.6;
+      }
+
+      /* ── REVENUE TABLE ── */
+      .revenue-stack {
+        margin: 2rem 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .revenue-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        font-family: var(--font-mono);
+        font-size: 0.92rem;
+      }
+      .revenue-row:last-child {
+        border-bottom: none;
+      }
+      .revenue-row .vol {
+        color: var(--text-dim);
+      }
+      .revenue-row .rev {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .revenue-row.big {
+        background: var(--accent-glow);
+        border-radius: var(--radius);
+        border-bottom: none;
+        margin-top: 0.5rem;
+      }
+      .revenue-row.big .vol {
+        color: var(--accent-bright);
+      }
+      .revenue-row.big .rev {
+        color: #fff;
+        font-size: 1.1rem;
+      }
+
+      /* ── ANALOGY GRID ── */
+      .analogy-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.75rem;
+        margin: 2rem 0;
+      }
+      .analogy-item {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 1rem 1.25rem;
+        transition: all 0.25s;
+      }
+      .analogy-item:hover {
+        border-color: var(--border-bright);
+      }
+      .analogy-item .analog-from {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+      }
+      .analogy-item .analog-to {
+        font-size: 0.92rem;
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      /* ── BLOCKQUOTE ── */
+      blockquote {
+        border-left: 3px solid var(--accent);
+        padding: 1rem 1.5rem;
+        margin: 2rem 0;
+        background: var(--accent-glow);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      }
+      blockquote p {
+        color: var(--text);
+        font-style: italic;
+        margin: 0;
+        font-size: 1.05rem;
+        line-height: 1.7;
+      }
+
+      /* ── STAT ROW ── */
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.25rem;
+        margin: 2.5rem 0;
+      }
+      .stat-item {
+        text-align: center;
+        padding: 1.5rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+      .stat-item .stat-num {
+        font-size: clamp(1.8rem, 3vw, 2.5rem);
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        background: linear-gradient(135deg, var(--accent-bright), var(--green));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        line-height: 1.2;
+      }
+      .stat-item .stat-label {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        margin-top: 0.35rem;
+      }
+
+      /* ── LOOP ── */
+      .loop-diagram {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2.5rem;
+        margin: 2rem 0;
+        text-align: center;
+      }
+      .loop-diagram .loop-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--accent-bright);
+        margin-bottom: 1.5rem;
+      }
+      .loop-nodes {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1rem;
+      }
+      .loop-node {
+        background: var(--bg);
+        border: 1px solid var(--border-bright);
+        border-radius: var(--radius);
+        padding: 1rem 1.25rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-dim);
+        min-width: 170px;
+        position: relative;
+      }
+      .loop-node .node-arrow {
+        position: absolute;
+        right: -1.1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--accent);
+        font-size: 1.1rem;
+      }
+
+      /* ── MOAT STAGES ── */
+      .moat-stages {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin: 2rem 0;
+        position: relative;
+      }
+      .moat-stages::before {
+        content: "";
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(to bottom, var(--accent), var(--green));
+        border-radius: 2px;
+      }
+      .moat-stage {
+        display: flex;
+        gap: 1.25rem;
+        padding: 1.25rem 0;
+        align-items: flex-start;
+      }
+      .moat-dot {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--bg);
+        border: 2px solid var(--accent);
+        display: grid;
+        place-items: center;
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: var(--accent-bright);
+        position: relative;
+        z-index: 1;
+      }
+      .moat-stage:last-child .moat-dot {
+        border-color: var(--green);
+        color: var(--green);
+      }
+      .moat-text h4 {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 0.25rem;
+      }
+      .moat-text p {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      /* ── CTA SECTION ── */
+      .cta-section {
+        text-align: center;
+        padding: 8rem 2rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .cta-section::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(
+          ellipse at 50% 50%,
+          rgba(108, 92, 231, 0.06) 0%,
+          transparent 60%
+        );
+        pointer-events: none;
+      }
+      .cta-section .container {
+        position: relative;
+        z-index: 1;
+      }
+      .cta-section h2 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        background: linear-gradient(
+          135deg,
+          #fff 0%,
+          var(--accent-bright) 50%,
+          var(--green) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      /* ── DIVIDER ── */
+      .divider {
+        border: none;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--border-bright),
+          transparent
+        );
+        margin: 0;
+      }
+
+      /* ── FOOTER ── */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 3rem 2rem;
+        text-align: center;
+      }
+      footer p {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        margin: 0;
+      }
+      footer a {
+        color: var(--accent-bright);
+      }
+
+      /* ── REVEAL ── */
+      .reveal {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: transform, opacity;
+      }
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* ── RESPONSIVE ── */
+      @media (max-width: 768px) {
+        section {
+          padding: 4rem 1.5rem;
+        }
+        nav .nav-links {
+          display: none;
+          flex-direction: column;
+          position: absolute;
+          top: 64px;
+          left: 0;
+          right: 0;
+          background: rgba(10, 10, 15, 0.95);
+          backdrop-filter: blur(20px);
+          padding: 1.5rem 2rem;
+          border-bottom: 1px solid var(--border);
+          gap: 1rem;
+        }
+        nav .nav-links.open {
+          display: flex;
+        }
+        .menu-toggle {
+          display: block;
+        }
+        .hero {
+          padding: 7rem 1.5rem 4rem;
+          min-height: auto;
+        }
+        .problem-grid,
+        .comp-grid {
+          grid-template-columns: 1fr;
+        }
+        .stat-row {
+          grid-template-columns: 1fr 1fr;
+        }
+        .analogy-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .loop-nodes {
+          flex-direction: column;
+          align-items: center;
+        }
+        .loop-node .node-arrow {
+          display: none;
+        }
+        .arch-layer {
+          padding: 1.25rem;
+        }
+        .cta-section {
+          padding: 5rem 1.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ─── NAV ─── -->
+    <nav>
+      <div class="nav-inner">
+        <a class="logo" href="/">
+          <div class="icon"><i data-lucide="wrench"></i></div>
+          <span>ToolShed</span>
+        </a>
+        <button
+          class="menu-toggle"
+          onclick="
+            document.querySelector('.nav-links').classList.toggle('open')
+          "
+          aria-label="Toggle menu"
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M3 12h18M3 6h18M3 18h18" />
+          </svg>
+        </button>
+        <div class="nav-links">
+          <a href="#problem">Problem</a>
+          <a href="#solution">Solution</a>
+          <a href="#market">Market</a>
+          <a href="#competition">Competition</a>
+          <a href="#revenue">Revenue</a>
+          <a href="/" class="nav-cta"
+            >Full Thesis
+            <i data-lucide="external-link" class="lucide-inline"></i
+          ></a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ─── HERO ─── -->
+    <section class="hero">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <i data-lucide="blocks" class="lucide-inline"></i>
+          Marketplace
+        </div>
+        <h1>The Package Manager for the Agent Economy</h1>
+        <p class="subtitle">
+          Companies list tools. Agents discover and pay for them. Reputation
+          emerges from verified usage.
+        </p>
+        <div class="hero-cta-group">
+          <a href="#problem" class="btn btn-primary">
+            See the Pitch
+            <i data-lucide="arrow-down" class="lucide-inline"></i>
+          </a>
+          <a href="/" class="btn btn-outline">Read the Full Thesis</a>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── PROBLEM ─── -->
+    <section id="problem">
+      <div class="container reveal">
+        <div class="section-label">The Problem</div>
+        <h2>SaaS was built for human buyers</h2>
+        <p>
+          AI agents are increasingly capable. But the moment an agent needs a
+          tool it wasn't pre-configured with &mdash; fraud detection, compliance
+          checking, geospatial analysis &mdash; everything stops.
+          <strong
+            >There's no way to find one, no way to pay for it, and no way to
+            know if it's any good.</strong
+          >
+        </p>
+
+        <div class="problem-grid">
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="background: var(--red-dim); color: var(--red)"
+            >
+              <i data-lucide="search-x"></i>
+            </div>
+            <h4>No Discovery</h4>
+            <p>
+              Tools are hardcoded or manually configured. There's no Yellow
+              Pages for agent capabilities.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="background: var(--orange-dim); color: var(--orange)"
+            >
+              <i data-lucide="credit-card"></i>
+            </div>
+            <h4>No Payment</h4>
+            <p>
+              No machine-native way to pay for a tool call. It's all API keys,
+              billing dashboards, and enterprise contracts.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="
+                background: var(--accent-glow);
+                color: var(--accent-bright);
+              "
+            >
+              <i data-lucide="shield-question"></i>
+            </div>
+            <h4>No Reputation</h4>
+            <p>
+              An agent can't know which provider is reliable, fast, or accurate
+              without a human pre-vetting everything.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="background: var(--green-dim); color: var(--green)"
+            >
+              <i data-lucide="file-search"></i>
+            </div>
+            <h4>No Audit Trail</h4>
+            <p>
+              When an agent makes a decision based on a tool's output, there's
+              no versioned, reproducible record of what happened.
+            </p>
+          </div>
+        </div>
+
+        <blockquote>
+          <p>
+            Per-seat licenses, annual contracts, "schedule a demo" funnels
+            &mdash; the entire commercial infrastructure of software was
+            designed for humans. An agent that lives for 30 seconds can't sit
+            through a sales call.
+          </p>
+        </blockquote>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── SOLUTION ─── -->
+    <section id="solution">
+      <div class="container reveal">
+        <div class="section-label">The Solution</div>
+        <h2>npm + Stripe Connect for AI agents</h2>
+        <p>
+          <strong>ToolShed is a two-sided marketplace.</strong> Companies list
+          tools with pricing, schemas, and SLAs. Agents discover and pay for
+          them at runtime. Reputation is computed from verified usage &mdash;
+          you can't fake it without spending real money.
+        </p>
+
+        <div class="stat-row">
+          <div class="stat-item">
+            <div class="stat-num">1 line</div>
+            <div class="stat-label">of config to access every tool</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">~0ms</div>
+            <div class="stat-label">payment latency (prepaid credits)</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">Any</div>
+            <div class="stat-label">protocol (MCP, REST, gRPC)</div>
+          </div>
+        </div>
+
+        <h3>How It Works</h3>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <p>
+              Agent needs fraud detection but doesn't have a fraud tool
+              configured
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Calls <code>toolbox_search</code> &mdash; finds tools ranked by
+              quality, price, and latency
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Calls <code>toolbox_invoke</code> &mdash; gateway handles payment,
+              calls the provider, validates the response
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Agent uses the result. Submits a proof-of-use review. Credits draw
+              down automatically.
+            </p>
+          </div>
+        </div>
+
+        <h3>Architecture</h3>
+        <div class="arch-stack">
+          <div class="arch-layer l1">
+            <div class="layer-num">Layer 1 &mdash; Registry</div>
+            <h4>What exists, who provides it, what's the contract</h4>
+            <p class="layer-desc">
+              Versioned tool records in Dolt DB. Forkable, clonable, auditable
+              like a Git repo.
+            </p>
+            <div class="layer-bullets">
+              <span>Tool schemas</span>
+              <span>Pricing</span>
+              <span>Discovery</span>
+              <span>Identity</span>
+            </div>
+          </div>
+          <div class="arch-connector">&darr;</div>
+          <div class="arch-layer l2">
+            <div class="layer-num">Layer 2 &mdash; Gateway</div>
+            <h4>Invoke the tool, handle payment, verify response</h4>
+            <p class="layer-desc">
+              Thin routing layer with Stripe Connect. Protocol agnostic &mdash;
+              MCP, REST, gRPC, doesn't matter.
+            </p>
+            <div class="layer-bullets">
+              <span>Credit drawdown</span>
+              <span>Schema validation</span>
+              <span>Metering</span>
+            </div>
+          </div>
+          <div class="arch-connector">&darr;</div>
+          <div class="arch-layer l3">
+            <div class="layer-num">Layer 3 &mdash; Ledger</div>
+            <h4>Who called what, when, what did it cost</h4>
+            <p class="layer-desc">
+              Every invocation is a Dolt commit. Time-travel, diff, reproduce
+              any agent decision.
+            </p>
+            <div class="layer-bullets">
+              <span>Audit trail</span>
+              <span>Settlement</span>
+              <span>Proof of use</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── THE FLYWHEEL ─── -->
+    <section>
+      <div class="container reveal">
+        <div class="section-label">Network Effects</div>
+        <h2>The flywheel</h2>
+        <p>
+          Reputation can't be faked &mdash; every upvote requires proof of
+          payment and real usage. Better tools get more visibility. More
+          visibility drives more usage. More usage funds better tools.
+        </p>
+        <div class="loop-diagram">
+          <div class="loop-title">The Feedback Loop</div>
+          <div class="loop-nodes">
+            <div class="loop-node">
+              Better tools get more upvotes
+              <span class="node-arrow">&rarr;</span>
+            </div>
+            <div class="loop-node">
+              More visibility in search
+              <span class="node-arrow">&rarr;</span>
+            </div>
+            <div class="loop-node">
+              More agents discover &amp; pay
+              <span class="node-arrow">&rarr;</span>
+            </div>
+            <div class="loop-node">
+              More revenue for provider
+              <span class="node-arrow">&rarr;</span>
+            </div>
+            <div class="loop-node">Provider invests in quality</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── MARKET ─── -->
+    <section id="market">
+      <div class="container reveal">
+        <div class="section-label">Market</div>
+        <h2>How do you know people need this?</h2>
+
+        <div class="problem-grid">
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="
+                background: var(--accent-glow);
+                color: var(--accent-bright);
+              "
+            >
+              <i data-lucide="puzzle"></i>
+            </div>
+            <h4>Agents are stuck</h4>
+            <p>
+              Every agent framework hardcodes tools or relies on manually
+              curated lists. Cross-org tool use is completely broken.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="background: var(--green-dim); color: var(--green)"
+            >
+              <i data-lucide="zap"></i>
+            </div>
+            <h4>MCP proved demand</h4>
+            <p>
+              Thousands of MCP servers exist. Anthropic, OpenAI, Google are all
+              converging on tool use. But there's no commerce layer.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div
+              class="icon-wrap"
+              style="background: var(--orange-dim); color: var(--orange)"
+            >
+              <i data-lucide="store"></i>
+            </div>
+            <h4>Sellers have no storefront</h4>
+            <p>
+              Companies with valuable APIs have no machine-native way to sell to
+              agents. They need a marketplace that speaks money.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── COMPETITION ─── -->
+    <section id="competition">
+      <div class="container reveal">
+        <div class="section-label">Competition</div>
+        <h2>Competitive landscape</h2>
+
+        <div class="comp-grid">
+          <div class="comp-card">
+            <div class="comp-type">MCP Directories</div>
+            <h4>Smithery, mcp.run, Glama</h4>
+            <p>
+              List tools for developers to browse and manually configure. No
+              payment, no reputation, no way for an agent to discover tools on
+              its own at runtime.
+            </p>
+          </div>
+          <div class="comp-card">
+            <div class="comp-type">API Marketplaces</div>
+            <h4>RapidAPI, AWS Marketplace</h4>
+            <p>
+              Built for human buyers &mdash; dashboards, sales cycles, per-seat
+              pricing. None of that works when the buyer needs something in
+              200ms and disappears 30 seconds later.
+            </p>
+          </div>
+          <div class="comp-card">
+            <div class="comp-type">Agent Frameworks</div>
+            <h4>LangChain, CrewAI</h4>
+            <p>
+              Help you wire up tools you already have. They don't help your
+              agent find, pay for, or trust tools it doesn't have.
+            </p>
+          </div>
+          <div class="comp-card">
+            <div class="comp-type">Protocol Efforts</div>
+            <h4>Anthropic MCP, Google A2A</h4>
+            <p>
+              Define how an agent talks to a tool. Protocol is just a field in
+              our tool record. They're solving transport. We're solving
+              commerce.
+            </p>
+          </div>
+        </div>
+
+        <h3>Our Insight</h3>
+        <blockquote>
+          <p>
+            Everyone is fighting over how agents should talk to tools. That's
+            plumbing. What doesn't exist is how agents find tools, know which
+            ones are good, and pay for them &mdash; the commercial layer. MCP
+            directories are building lists. API marketplaces are building
+            storefronts for humans. We're building the package manager for an
+            agent economy.
+          </p>
+        </blockquote>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── REVENUE ─── -->
+    <section id="revenue">
+      <div class="container reveal">
+        <div class="section-label">Revenue</div>
+        <h2>How we make money</h2>
+        <p>
+          We take <strong>8&ndash;15%</strong> on every tool call routed through
+          our gateway. The average tool call costs $0.01. We take ~10%.
+        </p>
+
+        <div class="revenue-stack">
+          <div class="revenue-row">
+            <span class="vol">1M calls / day</span>
+            <span class="rev">$365K / year</span>
+          </div>
+          <div class="revenue-row">
+            <span class="vol">10M calls / day</span>
+            <span class="rev">$3.6M / year</span>
+          </div>
+          <div class="revenue-row">
+            <span class="vol">100M calls / day</span>
+            <span class="rev">$36M / year</span>
+          </div>
+          <div class="revenue-row big">
+            <span class="vol">1B calls / day</span>
+            <span class="rev">$365M / year</span>
+          </div>
+        </div>
+
+        <p>
+          npm serves 30B+ package downloads per month. Agent tool calls will
+          follow a similar curve &mdash; small per-transaction, massive volume.
+          Plus revenue from <strong>prepaid credit float</strong>,
+          <strong>promoted search</strong>, and
+          <strong>enterprise self-hosted licenses</strong>.
+        </p>
+
+        <h3>The Moat Over Time</h3>
+        <div class="moat-stages">
+          <div class="moat-stage">
+            <div class="moat-dot">1</div>
+            <div class="moat-text">
+              <h4>Platform Fee</h4>
+              <p>
+                Stripe Connect take rate. We're the billing layer. Credit
+                balances solve the latency problem.
+              </p>
+            </div>
+          </div>
+          <div class="moat-stage">
+            <div class="moat-dot">2</div>
+            <div class="moat-text">
+              <h4>Network Effects</h4>
+              <p>
+                Providers and agents concentrate. Reputation data compounds.
+                Cold-start problem solved for newcomers.
+              </p>
+            </div>
+          </div>
+          <div class="moat-stage">
+            <div class="moat-dot">3</div>
+            <div class="moat-text">
+              <h4>Data Moat</h4>
+              <p>
+                The registry IS the moat &mdash; like npm, whoever has the
+                packages wins. Gateway becomes optional.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── ANALOGIES ─── -->
+    <section>
+      <div class="container reveal">
+        <div class="section-label">Mental Models</div>
+        <h2>If you squint, it's&hellip;</h2>
+        <div class="analogy-grid">
+          <div class="analogy-item">
+            <div class="analog-from">DNS</div>
+            <div class="analog-to">for tool discovery</div>
+          </div>
+          <div class="analogy-item">
+            <div class="analog-from">npm</div>
+            <div class="analog-to">for agent capabilities</div>
+          </div>
+          <div class="analogy-item">
+            <div class="analog-from">Stripe Connect</div>
+            <div class="analog-to">for micropayments</div>
+          </div>
+          <div class="analogy-item">
+            <div class="analog-from">App Store ratings</div>
+            <div class="analog-to">but only verified purchasers</div>
+          </div>
+          <div class="analogy-item">
+            <div class="analog-from">Git + GitHub</div>
+            <div class="analog-to">for the registry &amp; ledger</div>
+          </div>
+          <div class="analogy-item">
+            <div class="analog-from">Shopify</div>
+            <div class="analog-to">honestly centralized, easy exit</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── WHY NOW ─── -->
+    <section>
+      <div class="container reveal">
+        <div class="section-label">The Idea</div>
+        <h2>Why this, why now</h2>
+        <p>
+          I've been building with AI agents daily and keep hitting the same
+          wall: the moment an agent needs a tool it wasn't pre-configured with,
+          everything stops. There's no way for it to find one, no way to pay for
+          it, and no way to know if it's any good.
+        </p>
+        <p>
+          I watched the MCP ecosystem explode &mdash; thousands of tool servers
+          popping up &mdash; but nobody is solving the layer above: discovery,
+          payment, and trust. Everyone's arguing about protocols while the real
+          problem is commercial infrastructure.
+        </p>
+        <p>
+          SaaS pricing was built for humans who evaluate, negotiate, and sign
+          contracts. An autonomous agent that lives for 30 seconds can't sit
+          through a sales call.
+          <strong
+            >This is a foundational gap &mdash; the plumbing that has to exist
+            before an agent economy can function &mdash; and nobody is building
+            it yet.</strong
+          >
+        </p>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- ─── CTA ─── -->
+    <section class="cta-section">
+      <div class="container reveal">
+        <h2>The agent economy needs plumbing.<br />We're building it.</h2>
+        <div style="margin-top: 2.5rem">
+          <a
+            href="/"
+            class="btn btn-primary"
+            style="font-size: 1.05rem; padding: 1rem 2.5rem"
+          >
+            Read the Full Thesis
+            <i data-lucide="arrow-right" class="lucide-inline"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── FOOTER ─── -->
+    <footer>
+      <p>
+        &copy; 2026 ToolShed &mdash;
+        <a
+          href="https://github.com/duanebester/toolshed"
+          target="_blank"
+          rel="noopener"
+        >
+          GitHub
+        </a>
+      </p>
+    </footer>
+
+    <!-- ─── SCRIPTS ─── -->
+    <script>
+      lucide.createIcons();
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) e.target.classList.add("visible");
+          });
+        },
+        { threshold: 0.12 },
+      );
+      document
+        .querySelectorAll(".reveal")
+        .forEach((el) => observer.observe(el));
+    </script>
+  </body>
+</html>
