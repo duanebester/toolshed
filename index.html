@@ -6,7 +6,7 @@
     <title>ToolShed</title>
     <meta
       name="description"
-      content="A decentralized registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
+      content="An open registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
     />
 
     <!-- Open Graph -->
@@ -14,11 +14,11 @@
     <meta property="og:url" content="https://toolshed.sh/" />
     <meta
       property="og:title"
-      content="ToolShed — A Decentralized Tool Registry for AI Agents"
+      content="ToolShed — An Open Tool Registry for AI Agents"
     />
     <meta
       property="og:description"
-      content="A decentralized registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
+      content="An open registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
     />
     <meta property="og:image" content="https://toolshed.sh/og_image.png" />
 
@@ -27,11 +27,11 @@
     <meta name="twitter:url" content="https://toolshed.sh/" />
     <meta
       name="twitter:title"
-      content="ToolShed — A Decentralized Tool Registry for AI Agents"
+      content="ToolShed — An Open Tool Registry for AI Agents"
     />
     <meta
       name="twitter:description"
-      content="A decentralized registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
+      content="An open registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
     />
     <meta name="twitter:image" content="https://toolshed.sh/og_image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1118,15 +1118,15 @@
     <section class="hero">
       <div class="hero-content">
         <div class="hero-badge">
-          <i data-lucide="blocks" class="lucide-inline"></i> Decentralized Tool
-          Registry for AI Agents
+          <i data-lucide="blocks" class="lucide-inline"></i> Open Tool Registry
+          for AI Agents
         </div>
         <h1>ToolShed</h1>
         <p class="subtitle">
-          A decentralized registry where companies list tools, agents discover
-          and pay for them, and reputation emerges from verified usage &mdash;
-          backed by <strong>Dolt DB</strong>, inspired by
-          <strong>AT Protocol's</strong> data model.
+          An open registry where companies list tools, agents discover and pay
+          for them, and reputation emerges from verified usage &mdash; backed by
+          <strong>Dolt DB</strong>, powered by <strong>Stripe</strong>, inspired
+          by <strong>AT Protocol's</strong> data model.
         </p>
         <div class="hero-cta-group">
           <a href="#problem" class="btn btn-primary"
@@ -1148,10 +1148,10 @@
               >"command"</span
             >: <span class="str">"npx"</span>,<br />
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"args"</span>:
-            [<span class="str">"@toolshed/mcp-server"</span>],<br />
+            [<span class="str">"@agent-toolshed/mcp-server"</span>],<br />
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"env"</span>:
-            { <span class="key">"STRIPE_CUSTOMER_ID"</span>:
-            <span class="str">"cus_abc123"</span> }<br />
+            { <span class="key">"TOOLSHED_ACCOUNT_ID"</span>:
+            <span class="str">"acct_abc123"</span> }<br />
             &nbsp;&nbsp;&nbsp;&nbsp;}<br />
             &nbsp;&nbsp;}<br />
             }
@@ -1729,10 +1729,13 @@
           <pre><span class="p">{</span>
   <span class="k">"subject"</span>: <span class="s">"com.toolshed.tool/fraud-detection-v3@acme.com"</span>,
   <span class="k">"proof"</span>: <span class="p">{</span>
-    <span class="k">"payment_method"</span>: <span class="s">"stripe"</span>,
-    <span class="k">"stripe_invoice_id"</span>: <span class="s">"in_1abc123def456"</span>,
+    <span class="k">"payment_method"</span>: <span class="s">"stripe_credits"</span>,
+    <span class="k">"meter_event_id"</span>: <span class="s">"mevt_1abc123def456"</span>,
+    <span class="k">"amount"</span>: <span class="n">0.005</span>,
+    <span class="k">"currency"</span>: <span class="s">"usd"</span>,
     <span class="k">"invocation_hash"</span>: <span class="s">"sha256:deadbeef..."</span>,
-    <span class="k">"ledger_commit"</span>: <span class="s">"dolt:76qerj11u38il8rb..."</span>
+    <span class="k">"ledger_commit"</span>: <span class="s">"dolt:76qerj11u38il8rb..."</span>,
+    <span class="k">"called_at"</span>: <span class="s">"2026-03-15T14:23:00Z"</span>
   <span class="p">}</span>,
   <span class="k">"evaluation"</span>: <span class="p">{</span>
     <span class="k">"quality"</span>: <span class="n">5</span>,
@@ -1759,9 +1762,9 @@
             </p>
           </div>
           <div class="record-item">
-            <h5>Schema / Lexicon</h5>
-            <div class="record-path">com.toolshed.lexicon/</div>
-            <p>Machine-readable input/output contract</p>
+            <h5>Account</h5>
+            <div class="record-path">accounts</div>
+            <p>Provider/operator identity, domain, Stripe Account ID</p>
           </div>
           <div class="record-item">
             <h5>Invocation Log</h5>
@@ -1873,11 +1876,16 @@
           <div class="code-header">
             payment field &mdash; extensible via lexicons
           </div>
-          <pre><span class="c">// MVP: Stripe metered billing</span>
-<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"stripe"</span>: <span class="p">{</span> <span class="k">"payment_link"</span>: <span class="s">"https://buy.stripe.com/..."</span>, <span class="k">"meter_id"</span>: <span class="s">"mtr_abc123"</span> <span class="p">}</span> <span class="p">}</span>
+          <pre><span class="c">// MVP: Stripe Connect (credit drawdown + destination charges)</span>
+<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"methods"</span>: [<span class="p">{</span>
+  <span class="k">"type"</span>: <span class="s">"stripe_connect"</span>,
+  <span class="k">"provider_account"</span>: <span class="s">"acct_acme_abc123"</span>,
+  <span class="k">"price_per_call"</span>: <span class="n">0.005</span>,
+  <span class="k">"currency"</span>: <span class="s">"usd"</span>
+<span class="p">}]</span> <span class="p">}</span>
 
 <span class="c">// Open source / community tools</span>
-<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"free"</span>: <span class="p">{}</span> <span class="p">}</span></pre>
+<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"methods"</span>: [<span class="p">{</span> <span class="k">"type"</span>: <span class="s">"free"</span> <span class="p">}]</span> <span class="p">}</span></pre>
         </div>
 
         <h3>Extensible via Lexicons</h3>
@@ -1887,12 +1895,10 @@
         </p>
         <div class="code-block">
           <div class="code-header">payment lexicon namespace examples</div>
-          <pre><span class="t">com.toolshed.defs</span><span class="c">#paymentStripe</span>       <span class="c">&larr; MVP</span>
-<span class="t">com.toolshed.defs</span><span class="c">#paymentFree</span>         <span class="c">&larr; open source</span>
-<span class="t">com.toolshed.defs</span><span class="c">#paymentLightning</span>    <span class="c">&larr; future: micropayments</span>
-<span class="t">com.toolshed.defs</span><span class="c">#paymentCashu</span>        <span class="c">&larr; future: bearer tokens</span>
-<span class="t">io.fedi.defs</span><span class="c">#paymentFedimint</span>         <span class="c">&larr; community-defined</span>
-<span class="t">xyz.newrail.defs</span><span class="c">#paymentWhatever</span>     <span class="c">&larr; anyone can extend</span></pre>
+          <pre><span class="t">com.toolshed.defs</span><span class="c">#paymentStripeConnect</span>  <span class="c">&larr; MVP (credits + destination charges)</span>
+<span class="t">com.toolshed.defs</span><span class="c">#paymentFree</span>           <span class="c">&larr; open source / community tools</span>
+<span class="t">com.toolshed.defs</span><span class="c">#paymentLightning</span>      <span class="c">&larr; machine-native micropayments (no gateway needed)</span>
+<span class="t">com.toolshed.defs</span><span class="c">#paymentCashu</span>          <span class="c">&larr; bearer token micropayments (no gateway needed)</span></pre>
         </div>
         <p>
           Validate on read. If a tool lists a payment method the agent doesn't
@@ -2369,46 +2375,49 @@
             <p>
               Who defines <code>com.toolshed.*</code> lexicons? A foundation? A
               GitHub org? Follow AT Protocol norms &mdash; publish early, evolve
-              carefully.
+              carefully, let the ecosystem fork if needed.
             </p>
           </div>
           <div class="problem-card">
-            <h4>Agent Wallets</h4>
+            <h4>Settlement Cadence</h4>
             <p>
-              V1: Stripe customer ID + spending cap. V2: per-agent budgets. V3:
-              prepaid balances. V4: autonomous agents with own funds (Lightning,
-              Cashu).
+              When operators pre-fund credits, the platform holds the float
+              until provider payout. Daily? Weekly? Real-time? Provider trust
+              correlates with payout speed.
             </p>
           </div>
           <div class="problem-card">
-            <h4>Schema Evolution</h4>
+            <h4>Credit Balance Cache</h4>
             <p>
-              When tool input/output changes, how do we handle backward
-              compatibility? Follow lexicon rules &mdash; additive only,
-              breaking changes = new name.
+              MVP is single-node with a local cache &mdash; no double-spend
+              risk. Multi-node needs sticky routing or a shared cache with
+              distributed locking. Scale problem, not a v1 problem.
             </p>
           </div>
           <div class="problem-card">
-            <h4>Privacy</h4>
+            <h4>Upvote Adoption</h4>
             <p>
-              Invocation logs contain sensitive data. Dolt ledger could be
-              local-only, with only upvotes going to the shared registry.
+              Tools with lots of usage but few upvotes have a visibility gap.
+              Consider publishing invocation counts as a lightweight volume
+              signal alongside upvotes.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Agent Review Quality</h4>
+            <p>
+              Early review quality will be mostly binary (worked vs. didn't).
+              Make <code>schema_valid</code> and
+              <code>latency_met_sla</code> the primary automated signals; treat
+              <code>quality</code> and <code>useful</code> as optional
+              enrichment.
             </p>
           </div>
           <div class="problem-card">
             <h4>Dispute Resolution</h4>
             <p>
-              What if a tool takes payment but returns garbage? Proof-of-use
-              creates a public record. Low quality + valid payment = strong
-              signal. Formal resolution is TBD.
-            </p>
-          </div>
-          <div class="problem-card">
-            <h4>Relay Economics</h4>
-            <p>
-              Who runs relays that index tool records? Same model as AT Protocol
-              relays &mdash; some public, some private, some subsidized by
-              providers.
+              Clear-cut failures trigger automatic no-charge. Gray areas need
+              the Dolt ledger + Stripe meter reconciliation for auditable
+              evidence. Formal arbitration is still an open design problem.
             </p>
           </div>
         </div>
