@@ -1086,14 +1086,14 @@
           </div>
           <div class="flow-step">
             <p>
-              Calls <code>toolbox_search</code> &mdash; finds tools ranked by
+              Calls <code>toolshed_search</code> &mdash; finds tools ranked by
               quality, price, and latency
             </p>
           </div>
           <div class="flow-step">
             <p>
-              Calls <code>toolbox_invoke</code> &mdash; gateway handles payment,
-              calls the provider, validates the response
+              Calls <code>toolshed_invoke</code> &mdash; gateway handles
+              payment, calls the provider, validates the response
             </p>
           </div>
           <div class="flow-step">
@@ -1312,8 +1312,9 @@
         <div class="section-label">Revenue</div>
         <h2>How we make money</h2>
         <p>
-          We take <strong>8&ndash;15%</strong> on every tool call routed through
-          our gateway. The average tool call costs $0.01. We take ~10%.
+          We take a <strong>platform fee on every tool call</strong> routed
+          through our gateway &mdash; default 15%, scaling to 8% for high-volume
+          providers. Managed via Stripe's Platform Pricing Tool.
         </p>
 
         <div class="revenue-stack">
