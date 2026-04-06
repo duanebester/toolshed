@@ -1,0 +1,94 @@
+# ToolShed — Dolt SQL Server
+# Serves both the shared registry and the local ledger as separate databases.
+#
+# Usage:
+#   docker compose up -d
+#   docker compose exec -T dolt dolt --data-dir /var/lib/dolt sql -q "USE toolshed_registry; SELECT * FROM tool_definitions"
+#
+# Ports:
+#   3306 — MySQL-compatible SQL server (Dolt)
+#   2222 — SSH server for tool registration (run separately via toolshed-ssh binary, not managed by compose yet)
+
+services:
+  dolt:
+    image: dolthub/dolt-sql-server:latest
+    container_name: toolshed-dolt
+    ports:
+      - "3306:3306"
+      # - "2222:2222"  # SSH server — will be a separate service/binary
+    volumes:
+      - dolt-data:/var/lib/dolt
+      - ./schema:/schema:ro
+      - ./scripts:/scripts:ro
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+
+        # Dolt requires a user identity for commits
+        dolt config --global --add user.email 'toolshed@localhost'
+        dolt config --global --add user.name 'ToolShed'
+
+        DATA_DIR=/var/lib/dolt
+
+        # ── Registry (shared, cloneable) ─────────────────────────
+        if [ ! -d "$$DATA_DIR/toolshed_registry/.dolt" ]; then
+          echo "==> Initializing toolshed_registry..."
+          mkdir -p "$$DATA_DIR/toolshed_registry"
+          cd "$$DATA_DIR/toolshed_registry"
+          dolt init --name 'ToolShed' --email 'toolshed@localhost'
+          dolt sql < /schema/registry/001_init.sql
+          dolt sql < /schema/registry/002_embeddings.sql
+          dolt add .
+          dolt commit -m "Initial registry schema"
+          dolt sql < /schema/registry/seed.sql
+          dolt add .
+          dolt commit -m "Seed data: example tool definitions"
+        else
+          echo "==> toolshed_registry already initialized, skipping."
+        fi
+
+        # ── Ledger (local only, never shared) ────────────────────
+        if [ ! -d "$$DATA_DIR/toolshed_ledger/.dolt" ]; then
+          echo "==> Initializing toolshed_ledger..."
+          mkdir -p "$$DATA_DIR/toolshed_ledger"
+          cd "$$DATA_DIR/toolshed_ledger"
+          dolt init --name 'ToolShed' --email 'toolshed@localhost'
+          dolt sql < /schema/ledger/001_init.sql
+          dolt add .
+          dolt commit -m "Initial ledger schema"
+        else
+          echo "==> toolshed_ledger already initialized, skipping."
+        fi
+
+        # ── Create remote root user BEFORE starting the server ───
+        # By default Dolt only creates root@localhost on first boot.
+        # Connections from the Docker host arrive via port-mapping and
+        # appear as non-localhost, so we pre-create root@'%' by writing
+        # directly to the privilege tables via --data-dir.
+        echo "==> Ensuring root@'%' user exists..."
+        dolt --data-dir "$$DATA_DIR" sql -q "
+          CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '';
+          GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+        " 2>/dev/null || echo "  (root@'%' already exists)"
+
+        # ── Start the SQL server ─────────────────────────────────
+        echo "==> Starting Dolt SQL server..."
+        exec dolt sql-server \
+          --host 0.0.0.0 \
+          --port 3306 \
+          --data-dir "$$DATA_DIR"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "dolt --data-dir /var/lib/dolt sql -q 'SELECT 1' || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  dolt-data:

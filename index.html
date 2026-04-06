@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta
       name="description"
-      content="An open registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
+      content="A free, open, decentralized registry where companies list tools, agents discover them, and reputation emerges from verified usage — backed by Dolt DB, accessed via SSH."
     />
 
     <!-- Open Graph -->
@@ -15,11 +15,11 @@
     <meta property="og:url" content="https://toolshed.sh/" />
     <meta
       property="og:title"
-      content="ToolShed — An Open Tool Registry for AI Agents"
+      content="ToolShed — SSH-First Tool Registry for AI Agents"
     />
     <meta
       property="og:description"
-      content="An open registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
+      content="A free, open, decentralized registry where companies list tools, agents discover them, and reputation emerges from verified usage — backed by Dolt DB, accessed via SSH."
     />
     <meta property="og:image" content="https://toolshed.sh/og_image.png" />
 
@@ -28,11 +28,11 @@
     <meta name="twitter:url" content="https://toolshed.sh/" />
     <meta
       name="twitter:title"
-      content="ToolShed — An Open Tool Registry for AI Agents"
+      content="ToolShed — SSH-First Tool Registry for AI Agents"
     />
     <meta
       name="twitter:description"
-      content="An open registry where companies list tools, agents discover and pay for them, and reputation emerges from verified usage."
+      content="A free, open, decentralized registry where companies list tools, agents discover them, and reputation emerges from verified usage — backed by Dolt DB, accessed via SSH."
     />
     <meta name="twitter:image" content="https://toolshed.sh/og_image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1103,8 +1103,8 @@
         <div class="nav-links">
           <a href="#problem">Problem</a>
           <a href="#architecture">Architecture</a>
+          <a href="#ssh">SSH Identity</a>
           <a href="#records">Records</a>
-          <a href="#versioning">Versioning</a>
           <a href="#payment">Payment</a>
           <a href="#reputation">Reputation</a>
           <a href="#how-it-works">How It Works</a>
@@ -1119,15 +1119,16 @@
     <section class="hero">
       <div class="hero-content">
         <div class="hero-badge">
-          <i data-lucide="blocks" class="lucide-inline"></i> Open Tool Registry
-          for AI Agents
+          <i data-lucide="terminal" class="lucide-inline"></i> SSH-First Tool
+          Registry for AI Agents
         </div>
         <h1>ToolShed</h1>
         <p class="subtitle">
-          An open registry where companies list tools, agents discover and pay
-          for them, and reputation emerges from verified usage &mdash; backed by
-          <strong>Dolt DB</strong>, powered by <strong>Stripe</strong>, inspired
-          by <strong>AT Protocol's</strong> data model.
+          A free, open, decentralized registry where companies list tools,
+          agents discover them, and reputation emerges from verified usage
+          &mdash; backed by <strong>Dolt DB</strong>, accessed via
+          <strong>SSH</strong>, inspired by <strong>AT Protocol's</strong> data
+          philosophy.
         </p>
         <div class="hero-cta-group">
           <a href="#problem" class="btn btn-primary"
@@ -1139,23 +1140,21 @@
         <div class="hero-visual">
           <div class="hero-code">
             <div class="dots"><span></span><span></span><span></span></div>
+            <span class="comment"># Search the registry</span><br />
+            <span class="key">$ ssh toolshed.sh search</span>
+            <span class="str">"fraud detection"</span><br />
+            <br />
+            <span class="comment"># Get tool details</span><br />
+            <span class="key">$ ssh toolshed.sh info</span>
+            <span class="str">acme.com/fraud-detection</span><br />
+            <br />
+            <span class="comment"># Register tools</span><br />
+            <span class="key">$ ssh toolshed.sh register</span> &lt;
+            toolshed.yaml<br />
+            <br />
             <span class="comment"
-              >// One config entry. Your agent gains access to every tool.</span
-            ><br />
-            {<br />
-            &nbsp;&nbsp;<span class="key">"mcpServers"</span>: {<br />
-            &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"toolshed"</span>: {<br />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key"
-              >"command"</span
-            >: <span class="str">"npx"</span>,<br />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"args"</span>:
-            [<span class="str">"@agent-toolshed/mcp-server"</span>],<br />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"env"</span>:
-            { <span class="key">"TOOLSHED_ACCOUNT_ID"</span>:
-            <span class="str">"acct_abc123"</span> }<br />
-            &nbsp;&nbsp;&nbsp;&nbsp;}<br />
-            &nbsp;&nbsp;}<br />
-            }
+              ># Your SSH key is your identity. Zero signup.</span
+            >
           </div>
         </div>
       </div>
@@ -1181,16 +1180,6 @@
             <p>
               Tools are hardcoded or manually configured. There's no Yellow
               Pages for agent capabilities.
-            </p>
-          </div>
-          <div class="problem-card">
-            <div class="icon-wrap" style="background: var(--green-dim)">
-              <i data-lucide="credit-card" style="color: var(--green)"></i>
-            </div>
-            <h4>No Payment</h4>
-            <p>
-              There's no machine-native way to pay for a tool call. It's all API
-              keys, billing dashboards, and enterprise contracts.
             </p>
           </div>
           <div class="problem-card">
@@ -1226,22 +1215,24 @@
               no versioned, reproducible record of what happened.
             </p>
           </div>
+          <div class="problem-card">
+            <div class="icon-wrap" style="background: var(--green-dim)">
+              <i data-lucide="terminal" style="color: var(--green)"></i>
+            </div>
+            <h4>No Machine-Native Interface</h4>
+            <p>
+              Agents interact with the world through HTTP clients, SDK wrappers,
+              and credential managers. Discovery should be as simple as running
+              a command.
+            </p>
+          </div>
         </div>
-
-        <blockquote>
-          <p>
-            <strong>SaaS pricing models assume a human buyer.</strong> Per-seat
-            licenses, annual contracts, "schedule a demo" funnels &mdash; the
-            entire commercial infrastructure was designed for humans. An agent
-            can't sit through a sales call.
-          </p>
-        </blockquote>
 
         <p>
           The protocol debate (MCP vs. skills vs. REST vs. gRPC) is a
           distraction. The real gap is:
           <strong class="highlight"
-            >how do agents find, trust, pay for, and audit tool usage across
+            >how do agents find, trust, and audit tool usage across
             organizational boundaries?</strong
           >
         </p>
@@ -1252,8 +1243,9 @@
     <section style="background: var(--bg-raised)">
       <div class="container reveal">
         <div class="section-label">Inspirations</div>
-        <h2>Built on the shoulders of four big ideas</h2>
+        <h2>Built on the shoulders of five big ideas</h2>
 
+        <!-- 1. AT Protocol -->
         <div class="insp-card">
           <h4>
             <span
@@ -1264,61 +1256,94 @@
               "
               >Data Model</span
             >
-            AT Protocol / "A Social Filesystem"
+            AT Protocol / &ldquo;A Social Filesystem&rdquo;
           </h4>
           <p style="color: var(--text-dim); font-size: 0.92rem">
             Dan Abramov's article reframes AT Protocol as a distributed
-            filesystem for social computing. The ToolShed borrows its design
-            patterns &mdash; but doesn't depend on Bluesky's infrastructure.
+            filesystem. ToolShed borrows its design patterns &mdash; records,
+            <code>.well-known</code> discovery, &ldquo;data outlives
+            software&rdquo; philosophy.
           </p>
           <ul>
             <li>
-              <strong>Everything is a record</strong> &mdash; JSON records in
-              repos, organized into namespaced collections
+              <strong>Everything is a record</strong> &mdash; structured
+              documents in repos, organized into collections
             </li>
             <li>
-              <strong>Lexicons</strong> &mdash; machine-readable schemas for
-              record formats, published by anyone
+              <strong><code>.well-known</code> discovery</strong> &mdash;
+              providers self-declare their tools at a standard URL
             </li>
             <li>
-              <strong>DIDs</strong> &mdash; decentralized identifiers for
-              portable, self-sovereign identity
+              <strong>&ldquo;Data outlives software&rdquo;</strong> &mdash; tool
+              records persist even if the registry disappears
             </li>
             <li>
-              <strong>"Third party is first party"</strong> &mdash; anyone
-              builds discovery, reputation, or alt registries over the same data
+              <strong>&ldquo;Third party is first party&rdquo;</strong> &mdash;
+              anyone builds discovery or alt registries over the same data
             </li>
           </ul>
           <blockquote>
             <p>
-              "Our memories, our thoughts, our designs should outlive the
-              software we used to create them." Replace "software" with "agent
-              frameworks" and the same principle applies to tools.
+              &ldquo;Our memories, our thoughts, our designs should outlive the
+              software we used to create them.&rdquo; Replace
+              &ldquo;software&rdquo; with &ldquo;agent frameworks&rdquo; and the
+              same principle applies to tools.
             </p>
           </blockquote>
         </div>
 
+        <!-- 2. terminal.shop -->
         <div class="insp-card">
           <h4>
             <span
               class="insp-tag"
               style="background: var(--green-dim); color: var(--green)"
+              >Interface</span
+            >
+            terminal.shop
+          </h4>
+          <p style="color: var(--text-dim); font-size: 0.92rem">
+            SSH as the primary interface. Public key identity. Interactive TUI +
+            non-interactive commands over the same protocol.
+          </p>
+          <ul>
+            <li>
+              <strong>SSH gives you identity for free</strong> &mdash; keys are
+              your account, no signup needed
+            </li>
+            <li>
+              <strong>Encryption for free</strong> &mdash; the protocol handles
+              it
+            </li>
+            <li>
+              <strong>Universality</strong> &mdash; every machine has an SSH
+              client
+            </li>
+            <li>
+              <strong>No API keys, no OAuth, no browser</strong> &mdash; just
+              SSH
+            </li>
+          </ul>
+        </div>
+
+        <!-- 3. Gas Town -->
+        <div class="insp-card">
+          <h4>
+            <span
+              class="insp-tag"
+              style="background: var(--orange-dim); color: var(--orange)"
               >Architecture</span
             >
             Gas Town (Steve Yegge)
           </h4>
           <p style="color: var(--text-dim); font-size: 0.92rem">
-            A multi-agent orchestration system for coordinating 20-30+ Claude
-            Code agents working simultaneously.
+            A multi-agent orchestration system &mdash; Dolt as the backbone for
+            all agent state.
           </p>
           <ul>
             <li>
               <strong>Dolt as the backbone</strong> &mdash; every piece of agent
               state lives in Dolt with full commit history
-            </li>
-            <li>
-              <strong>Mol Mall (planned)</strong> &mdash; a marketplace for
-              reusable agent workflow templates, like npm for agents
             </li>
             <li>
               <strong>Federation</strong> &mdash; multiple instances reference
@@ -1328,14 +1353,19 @@
               <strong>Agent identity</strong> &mdash; every operation is
               attributed with actor information and provenance
             </li>
+            <li>
+              <strong>Mol Mall</strong> &mdash; a marketplace for reusable agent
+              workflow templates
+            </li>
           </ul>
         </div>
 
+        <!-- 4. Dolt DB -->
         <div class="insp-card">
           <h4>
             <span
               class="insp-tag"
-              style="background: var(--orange-dim); color: var(--orange)"
+              style="background: var(--red-dim); color: var(--red)"
               >Storage</span
             >
             Dolt DB
@@ -1344,7 +1374,6 @@
             A SQL database you can fork, clone, branch, merge, push, and pull
             &mdash; just like Git. MySQL-compatible with full version history.
           </p>
-
           <div class="table-wrap" style="margin-top: 1rem">
             <table>
               <thead>
@@ -1356,28 +1385,19 @@
               <tbody>
                 <tr>
                   <td><code>dolt_history_*</code></td>
-                  <td>
-                    Full row-level history of every tool registration and
-                    invocation
-                  </td>
+                  <td>Full row-level history of every tool registration</td>
                 </tr>
                 <tr>
                   <td><code>AS OF</code> queries</td>
-                  <td>
-                    "What tools were available at time T? What schema was
-                    version N?"
-                  </td>
+                  <td>&ldquo;What tools existed at time T?&rdquo;</td>
                 </tr>
                 <tr>
                   <td><code>dolt_diff()</code></td>
-                  <td>"What changed between schema versions?"</td>
+                  <td>&ldquo;What changed between schema versions?&rdquo;</td>
                 </tr>
                 <tr>
                   <td>Branch &amp; merge</td>
-                  <td>
-                    A/B test new pricing, preview schema changes before
-                    publishing
-                  </td>
+                  <td>Preview schema changes before publishing</td>
                 </tr>
                 <tr>
                   <td><code>dolt clone / push</code></td>
@@ -1394,27 +1414,24 @@
           </div>
         </div>
 
+        <!-- 5. Unison -->
         <div class="insp-card">
           <h4>
             <span
               class="insp-tag"
-              style="
-                background: var(--purple-dim, rgba(168, 85, 247, 0.15));
-                color: var(--purple, #c084fc);
-              "
+              style="background: rgba(168, 85, 247, 0.15); color: #c084fc"
               >Versioning</span
             >
             Unison Programming Language
           </h4>
           <p style="color: var(--text-dim); font-size: 0.92rem">
-            A language where every definition is identified by a hash of its
-            syntax tree, not by its name. Names are just metadata &mdash;
-            pointers to hashes.
+            Every definition is identified by a hash of its syntax tree. Names
+            are just metadata &mdash; pointers to hashes.
           </p>
           <ul>
             <li>
-              <strong>No version conflicts</strong> &mdash; two versions of a
-              function are just two different hashes that coexist
+              <strong>No version conflicts</strong> &mdash; two versions are
+              just two different hashes that coexist
             </li>
             <li>
               <strong>No builds break</strong> &mdash; dependencies are pinned
@@ -1445,16 +1462,86 @@
     <section>
       <div class="container reveal">
         <div class="section-label">The On-Ramp</div>
-        <h2>It's just another MCP server</h2>
+        <h2>SSH in. Discover tools. Call them directly.</h2>
         <p>
-          The ToolShed doesn't change the pattern developers already use &mdash;
-          it <em>is</em> that pattern. Add one config entry and your agent has
-          access to every tool in the registry. No new paradigm, no behavioral
-          shift.
+          The ToolShed doesn't require an SDK, HTTP client, or credential
+          manager. Agents interact via SSH &mdash; available in every runtime,
+          every container, every sandbox. Providers declare tools in a YAML
+          file. MCP users can still use the MCP server.
+        </p>
+
+        <h3>For Agents: SSH</h3>
+
+        <div class="code-block">
+          <div class="code-header">SSH commands</div>
+          <pre><span class="c"># Search the registry</span>
+<span class="k">ssh toolshed.sh search</span> <span class="s">"fraud detection"</span>
+
+<span class="c"># Get tool details</span>
+<span class="k">ssh toolshed.sh info</span> <span class="s">acme.com/fraud-detection</span>
+
+<span class="c"># Register tools</span>
+<span class="k">ssh toolshed.sh register</span> &lt; toolshed.yaml
+
+<span class="c"># Report a tool call (for reputation)</span>
+<span class="k">ssh toolshed.sh report</span> --tool acme.com/fraud-detection \
+  --latency 45ms --success --input-hash sha256:abc
+
+<span class="c"># Upvote a tool</span>
+<span class="k">ssh toolshed.sh upvote</span> acme.com/fraud-detection --quality 4 --useful
+
+<span class="c"># Interactive TUI browser</span>
+<span class="k">ssh toolshed.sh</span></pre>
+        </div>
+
+        <p>
+          <strong>Identity is built-in.</strong> The first time you connect,
+          your SSH public key fingerprint becomes your account ID. Zero signup.
+          No email, no password, no OAuth.
+        </p>
+
+        <h3>For Providers: A YAML File</h3>
+
+        <div class="code-block">
+          <div class="code-header">/.well-known/toolshed.yaml</div>
+          <pre><span class="k">version</span>: <span class="s">"0.1"</span>
+<span class="k">provider</span>:
+  <span class="k">domain</span>: <span class="s">acme.com</span>
+  <span class="k">contact</span>: <span class="s">tools@acme.com</span>
+
+<span class="k">tools</span>:
+  - <span class="k">name</span>: <span class="s">Fraud Detection</span>
+    <span class="k">description</span>: <span class="s">Real-time fraud scoring for transactions</span>
+    <span class="k">version</span>: <span class="s">"1.0.0"</span>
+    <span class="k">capabilities</span>: [<span class="s">fraud-detection</span>, <span class="s">real-time</span>, <span class="s">fintech</span>]
+    <span class="k">invoke</span>:
+      <span class="k">protocol</span>: <span class="s">rest</span>
+      <span class="k">endpoint</span>: <span class="s">https://api.acme.com/fraud</span>
+      <span class="k">tool_name</span>: <span class="s">fraud_detection</span>
+    <span class="k">schema</span>:
+      <span class="k">input</span>:
+        <span class="k">transaction_id</span>: { <span class="k">type</span>: <span class="s">string</span> }
+        <span class="k">amount</span>: { <span class="k">type</span>: <span class="s">number</span>, <span class="k">min</span>: <span class="n">0</span> }
+        <span class="k">merchant_category</span>: { <span class="k">type</span>: <span class="s">string</span> }
+      <span class="k">output</span>:
+        <span class="k">risk_score</span>: { <span class="k">type</span>: <span class="s">number</span>, <span class="k">min</span>: <span class="n">0</span>, <span class="k">max</span>: <span class="n">100</span> }
+        <span class="k">flags</span>: { <span class="k">type</span>: <span class="s">array</span>, <span class="k">items</span>: { <span class="k">type</span>: <span class="s">string</span> } }
+    <span class="k">pricing</span>:
+      <span class="k">model</span>: <span class="s">free</span></pre>
+        </div>
+
+        <p>
+          ~25 lines for a complete tool registration. An agent can read it. A
+          human can write it. Two ways in: <strong>push</strong> via
+          <code>ssh toolshed.sh register &lt; toolshed.yaml</code> or
+          <strong>pull</strong> via <code>ssh toolshed.sh crawl acme.com</code>.
         </p>
 
         <h3>The Meta-Tools</h3>
-        <p>The ToolShed exposes a small set of meta-tools:</p>
+        <p>
+          The ToolShed exposes eight meta-tools via SSH (and optionally HTTP or
+          MCP):
+        </p>
         <div
           class="problem-grid"
           style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))"
@@ -1467,9 +1554,9 @@
                 color: var(--accent-bright);
               "
             >
-              toolshed_search
+              search
             </h4>
-            <p>Find tools by capability, price, latency, reputation</p>
+            <p>Find tools by capability, price, reputation</p>
           </div>
           <div class="problem-card">
             <h4
@@ -1479,11 +1566,9 @@
                 color: var(--green);
               "
             >
-              toolshed_invoke
+              info
             </h4>
-            <p>
-              Call a tool &mdash; handles payment, schema validation, logging
-            </p>
+            <p>Get full details on a specific tool</p>
           </div>
           <div class="problem-card">
             <h4
@@ -1493,9 +1578,9 @@
                 color: var(--orange);
               "
             >
-              toolshed_reputation
+              register
             </h4>
-            <p>Check reliability, quality scores, SLA compliance</p>
+            <p>Publish a tool record to the registry</p>
           </div>
           <div class="problem-card">
             <h4
@@ -1505,9 +1590,59 @@
                 color: var(--pink);
               "
             >
-              toolshed_review
+              crawl
             </h4>
-            <p>Submit a proof-of-use upvote after using a tool</p>
+            <p>
+              Index tools from a domain's <code>.well-known/toolshed.yaml</code>
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--accent-bright);
+              "
+            >
+              report
+            </h4>
+            <p>Submit an invocation report for reputation</p>
+          </div>
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--green);
+              "
+            >
+              upvote
+            </h4>
+            <p>Submit a quality review linked to a report</p>
+          </div>
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--orange);
+              "
+            >
+              verify
+            </h4>
+            <p>Verify domain ownership</p>
+          </div>
+          <div class="problem-card">
+            <h4
+              style="
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+                color: var(--pink);
+              "
+            >
+              help
+            </h4>
+            <p>Structured YAML command catalog for agent self-discovery</p>
           </div>
         </div>
 
@@ -1521,45 +1656,50 @@
           </div>
           <div class="flow-step">
             <p>
-              Agent doesn't have a fraud tool &mdash; calls
+              Agent doesn't have a fraud tool &rarr;
+              <code>ssh toolshed.sh search "fraud detection"</code>
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>ToolShed returns YAML results from the Dolt registry</p>
+          </div>
+          <div class="flow-step">
+            <p>Agent picks one, reads the endpoint and schema</p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Agent calls the tool <strong>DIRECTLY</strong>:
+              <code>POST https://api.acme.com/fraud { ... }</code>
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>Agent gets the result, uses it</p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Optionally:
               <code
-                >toolshed_search({ capabilities: ["fraud"], max_price: 0.01
-                })</code
+                >ssh toolshed.sh report --tool acme.com/fraud --latency 45ms
+                --success</code
               >
             </p>
           </div>
           <div class="flow-step">
-            <p>ToolShed returns ranked results from the Dolt registry</p>
-          </div>
-          <div class="flow-step">
             <p>
-              Agent picks one, calls
+              Optionally:
               <code
-                >toolshed_invoke({ tool: "fraud-detection-v3@acme.com", input:
-                {...} })</code
+                >ssh toolshed.sh upvote acme.com/fraud --quality 5
+                --useful</code
               >
-            </p>
-          </div>
-          <div class="flow-step">
-            <p>
-              ToolShed gateway handles Stripe payment, calls the endpoint,
-              validates response
-            </p>
-          </div>
-          <div class="flow-step">
-            <p>
-              Agent gets the result, uses it &mdash; then calls
-              <code>toolshed_review</code> with quality signal
             </p>
           </div>
         </div>
 
         <blockquote>
           <p>
-            An agent that already has a hardcoded fraud tool will never search
-            for fraud &mdash; it'll just use what it has. But the first time it
-            needs something it <em>doesn't</em> have, the ToolShed is right
-            there. <strong>Discovery happens organically at the edges.</strong>
+            ToolShed is involved in steps 2-3 (discovery) and 7-8 (reputation).
+            It is <strong>never</strong> in the call path (step 5).
+            <strong>Discovery happens organically at the edges.</strong>
           </p>
         </blockquote>
       </div>
@@ -1569,7 +1709,7 @@
     <section id="architecture" style="background: var(--bg-raised)">
       <div class="container reveal">
         <div class="section-label">Architecture</div>
-        <h2>Three layers. Clean separation.</h2>
+        <h2>Two layers. Clean separation.</h2>
 
         <div class="arch-stack">
           <div class="arch-layer l1">
@@ -1577,88 +1717,164 @@
             <h4>What exists, who provides it, what's the contract</h4>
             <p class="layer-desc">
               Dolt-backed. Tool records with schema, pricing, endpoint, payment
-              methods, and SLA. Company identity verified via domain ownership
-              or DIDs. Capability search and discovery.
+              methods. Identity via SSH key fingerprints and domain
+              verification. Capability search, discovery, and upvotes. Clonable
+              by anyone.
             </p>
             <div class="layer-bullets">
               <span>Tool Records</span><span>Schemas</span><span>Pricing</span
-              ><span>Discovery</span><span>Identity</span>
+              ><span>Discovery</span><span>Identity</span><span>Upvotes</span>
             </div>
           </div>
           <div class="arch-connector">
             <i data-lucide="arrow-up-down" class="lucide-inline"></i>
           </div>
           <div class="arch-layer l2">
-            <div class="layer-num">Layer 2 &mdash; Gateway</div>
-            <h4>Invoke the tool, handle payment, verify response</h4>
+            <div class="layer-num">Layer 2 &mdash; Ledger</div>
+            <h4>Who called what, when, what happened</h4>
             <p class="layer-desc">
-              Thin routing + auth + metering. Protocol translation (MCP, REST,
-              gRPC &mdash; doesn't care). Payment negotiation, usage metering
-              via Stripe, and response validation against schema.
+              Dolt-backed audit trail. Every invocation report is a commit.
+              Input hash, output hash, timing, success/failure. Tied to SSH key
+              fingerprint. Local to each node &mdash; never shared or cloned.
             </p>
             <div class="layer-bullets">
-              <span>Protocol Translation</span><span>Payment</span
-              ><span>Metering</span><span>Validation</span>
-            </div>
-          </div>
-          <div class="arch-connector">
-            <i data-lucide="arrow-up-down" class="lucide-inline"></i>
-          </div>
-          <div class="arch-layer l3">
-            <div class="layer-num">Layer 3 &mdash; Ledger</div>
-            <h4>Who called what, when, what did it cost</h4>
-            <p class="layer-desc">
-              Dolt-backed audit trail. Every invocation is a commit.
-              Time-travel, diff, reproduce any agent decision. Settlement and
-              reconciliation records.
-            </p>
-            <div class="layer-bullets">
-              <span>Invocation Logs</span><span>Time Travel</span
-              ><span>Diffs</span><span>Settlement</span>
+              <span>Invocation Reports</span><span>Time Travel</span
+              ><span>Diffs</span><span>Audit Trail</span>
             </div>
           </div>
         </div>
 
-        <h3>Protocol Agnosticism</h3>
         <p>
-          The MCP-vs-skills debate is a false choice. The invocation method is
-          just a field in the tool record:
+          There is no gateway proxy. The SSH server IS the registry service
+          &mdash; it handles discovery, registration, reporting, and reputation.
+          It
+          <strong>never touches tool call traffic</strong>.
         </p>
 
+        <h3>Protocol Agnosticism</h3>
+        <p>The invocation method is just a field in the tool record:</p>
+
         <div class="code-block">
-          <div class="code-header">invocation field</div>
-          <pre><span class="p">{</span>
-  <span class="k">"protocol"</span>: <span class="s">"mcp"</span>,       <span class="c">// or "rest", "grpc", "graphql", "skill"</span>
-  <span class="k">"endpoint"</span>: <span class="s">"https://tools.acme.com/mcp"</span>,
-  <span class="k">"tool_name"</span>: <span class="s">"fraud_check"</span>
-<span class="p">}</span></pre>
+          <div class="code-header">invocation field (YAML)</div>
+          <pre><span class="k">invoke</span>:
+  <span class="k">protocol</span>: <span class="s">rest</span>          <span class="c"># or mcp, grpc, graphql</span>
+  <span class="k">endpoint</span>: <span class="s">https://api.acme.com/fraud</span>
+  <span class="k">tool_name</span>: <span class="s">fraud_detection</span></pre>
         </div>
 
         <p>
           It's like how DNS doesn't care what protocol you speak once you've
-          resolved the address. The
-          <strong class="highlight"
-            >schema is the contract; the protocol is a transport detail.</strong
-          >
+          resolved the address.
+          <strong class="highlight">ToolShed is DNS, not a CDN.</strong>
+          It tells agents where to go. It doesn't proxy the traffic.
         </p>
       </div>
     </section>
 
+    <!-- SSH-FIRST IDENTITY -->
+    <section id="ssh">
+      <div class="container reveal">
+        <div class="section-label">Identity</div>
+        <h2>SSH-first identity</h2>
+        <p>
+          SSH public key authentication solves the hardest bootstrapping problem
+          in any registry: <strong>identity without signup</strong>.
+        </p>
+
+        <h3>The Key Is Your Account</h3>
+
+        <div class="code-block">
+          <div class="code-header">how identity works</div>
+          <pre><span class="c">First connection:</span>
+  1. You run: <span class="k">ssh toolshed.sh</span>
+  2. Your SSH client presents your public key
+  3. ToolShed computes: SHA256 fingerprint <span class="s">&rarr;</span> that's your account ID
+  4. Account created automatically. Zero friction.
+
+<span class="c">Subsequent connections:</span>
+  Same key <span class="s">&rarr;</span> same account <span class="s">&rarr;</span> same history, reputation, tools</pre>
+        </div>
+
+        <p>
+          No email. No password. No OAuth flow. No API key to rotate. The SSH
+          key you already have is your identity.
+        </p>
+
+        <h3>Domain Verification</h3>
+
+        <div class="code-block">
+          <div class="code-header">verifying domain ownership</div>
+          <pre><span class="k">$ ssh toolshed.sh verify acme.com</span>
+<span class="c"># Returns: Add this DNS TXT record:</span>
+<span class="c">#   toolshed-verify=sha256:your-key-fingerprint</span>
+<span class="c"># Or: Place this at https://acme.com/.well-known/toolshed-verify.txt</span></pre>
+        </div>
+
+        <p>
+          Once verified, your key is bound to that domain. Tools you register
+          are attributed to <code>acme.com</code>. Your upvotes carry the weight
+          of a domain-verified identity.
+        </p>
+
+        <h3>Why SSH Works for Agents</h3>
+
+        <div
+          class="problem-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))"
+        >
+          <div class="problem-card">
+            <h4>Every runtime has it</h4>
+            <p>
+              Python's <code>subprocess.run</code>. Node's
+              <code>child_process.exec</code>. Go's <code>os/exec</code>. No SDK
+              needed.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Keys managed by the OS</h4>
+            <p>
+              No credential files to leak, no env vars, no token refresh logic.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Works in containers</h4>
+            <p>Mount a key, done. Works in CI/CD, sandboxes, agent runtimes.</p>
+          </div>
+          <div class="problem-card">
+            <h4>Non-interactive by default</h4>
+            <p>
+              <code>ssh toolshed.sh search "x"</code> returns structured YAML to
+              stdout. Perfect for piping.
+            </p>
+          </div>
+          <div class="problem-card">
+            <h4>Interactive when needed</h4>
+            <p>
+              <code>ssh toolshed.sh</code> (no args) opens a full TUI for
+              browsing.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- EVERYTHING IS RECORDS -->
-    <section id="records">
+    <section id="records" style="background: var(--bg-raised)">
       <div class="container reveal">
         <div class="section-label">Data Model</div>
         <h2>Everything is records</h2>
         <p>
-          Every entity in the system is a <strong>record</strong> &mdash; a JSON
-          document with a schema. No special servers for payment, reputation, or
-          discovery. It's all records in the Dolt registry, with materialized
-          views computed by whoever needs them.
+          Every entity in the system is a <strong>record</strong> &mdash; a
+          structured document with a schema. No special servers for payment,
+          reputation, or discovery. It's all records in the Dolt registry, with
+          materialized views computed by whoever needs them.
         </p>
 
-        <h3>The Tool Record</h3>
+        <h3>The Tool Record (YAML)</h3>
         <p>
-          A company registers a tool in two parts: an immutable
+          A provider registers a tool by publishing a
+          <code>toolshed.yaml</code> file or pushing one via SSH. The registry
+          splits it into two parts: an immutable
           <strong>definition</strong> (the contract) and a mutable
           <strong>listing</strong> (the metadata). The registry hashes the
           definition to produce a <code>content_hash</code> &mdash; the tool's
@@ -1667,85 +1883,90 @@
 
         <div class="code-block">
           <div class="code-header">
-            definition (immutable, keyed by content_hash)
+            toolshed.yaml &mdash; what the provider writes
           </div>
-          <pre><span class="p">{</span>
-  <span class="k">"provider"</span>: <span class="p">{</span>
-    <span class="k">"domain"</span>: <span class="s">"acme.com"</span>,
-    <span class="k">"did"</span>: <span class="s">"did:plc:acme-corp"</span>
-  <span class="p">}</span>,
+          <pre><span class="k">version</span>: <span class="s">"0.1"</span>
+<span class="k">provider</span>:
+  <span class="k">domain</span>: <span class="s">acme.com</span>
+  <span class="k">contact</span>: <span class="s">tools@acme.com</span>
 
-  <span class="k">"schema"</span>: <span class="p">{</span>
-    <span class="k">"input"</span>: <span class="p">{</span>
-      <span class="k">"transaction_id"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"string"</span> <span class="p">}</span>,
-      <span class="k">"amount"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"number"</span> <span class="p">}</span>,
-      <span class="k">"merchant_category"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"string"</span> <span class="p">}</span>
-    <span class="p">}</span>,
-    <span class="k">"output"</span>: <span class="p">{</span>
-      <span class="k">"risk_score"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"number"</span>, <span class="k">"min"</span>: <span class="n">0</span>, <span class="k">"max"</span>: <span class="n">1</span> <span class="p">}</span>,
-      <span class="k">"flags"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"array"</span>, <span class="k">"items"</span>: <span class="p">{</span> <span class="k">"type"</span>: <span class="s">"string"</span> <span class="p">}</span> <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>,
-
-  <span class="k">"invocation"</span>: <span class="p">{</span>
-    <span class="k">"protocol"</span>: <span class="s">"mcp"</span>,
-    <span class="k">"endpoint"</span>: <span class="s">"https://tools.acme.com/mcp"</span>,
-    <span class="k">"tool_name"</span>: <span class="s">"fraud_check"</span>
-  <span class="p">}</span>,
-
-  <span class="k">"capabilities"</span>: [<span class="s">"fraud"</span>, <span class="s">"ml"</span>, <span class="s">"financial"</span>, <span class="s">"real-time"</span>],
-  <span class="k">"createdAt"</span>: <span class="s">"2026-03-01T00:00:00Z"</span>
-<span class="p">}</span></pre>
+<span class="k">tools</span>:
+  - <span class="k">name</span>: <span class="s">Fraud Detection</span>
+    <span class="k">description</span>: <span class="s">Real-time transaction fraud scoring with ML</span>
+    <span class="k">version</span>: <span class="s">"3.1.0"</span>
+    <span class="k">capabilities</span>: [<span class="s">fraud</span>, <span class="s">ml</span>, <span class="s">financial</span>, <span class="s">real-time</span>]
+    <span class="k">invoke</span>:
+      <span class="k">protocol</span>: <span class="s">rest</span>
+      <span class="k">endpoint</span>: <span class="s">https://api.acme.com/fraud</span>
+      <span class="k">tool_name</span>: <span class="s">fraud_detection</span>
+    <span class="k">schema</span>:
+      <span class="k">input</span>:
+        <span class="k">transaction_id</span>: { <span class="k">type</span>: <span class="s">string</span> }
+        <span class="k">amount</span>: { <span class="k">type</span>: <span class="s">number</span>, <span class="k">min</span>: <span class="n">0</span> }
+        <span class="k">merchant_category</span>: { <span class="k">type</span>: <span class="s">string</span> }
+      <span class="k">output</span>:
+        <span class="k">risk_score</span>: { <span class="k">type</span>: <span class="s">number</span>, <span class="k">min</span>: <span class="n">0</span>, <span class="k">max</span>: <span class="n">100</span> }
+        <span class="k">flags</span>: { <span class="k">type</span>: <span class="s">array</span>, <span class="k">items</span>: { <span class="k">type</span>: <span class="s">string</span> } }
+    <span class="k">pricing</span>:
+      <span class="k">model</span>: <span class="s">per_call</span>
+      <span class="k">price</span>: <span class="n">0.005</span>
+      <span class="k">currency</span>: <span class="s">usd</span>
+    <span class="k">payment</span>:
+      <span class="k">methods</span>:
+        - <span class="k">type</span>: <span class="s">stripe_connect</span>
+          <span class="k">account_id</span>: <span class="s">acct_acme_abc123</span>
+        - <span class="k">type</span>: <span class="s">free_tier</span>
+          <span class="k">limit</span>: <span class="s">100/month</span></pre>
         </div>
 
-        <div class="code-block">
-          <div class="code-header">listing (mutable, points to definition)</div>
-          <pre><span class="p">{</span>
-  <span class="k">"definition_hash"</span>: <span class="s">"sha256:a1b2c3d4e5f6..."</span>,
-
-  <span class="k">"name"</span>: <span class="s">"Fraud Detection"</span>,
-  <span class="k">"version_label"</span>: <span class="s">"3.1.0"</span>,
-  <span class="k">"description"</span>: <span class="s">"Real-time transaction fraud scoring with ML"</span>,
-
-  <span class="k">"pricing"</span>: <span class="p">{</span> <span class="k">"model"</span>: <span class="s">"per_call"</span>, <span class="k">"price"</span>: <span class="n">0.005</span>, <span class="k">"currency"</span>: <span class="s">"usd"</span> <span class="p">}</span>,
-
-  <span class="k">"sla"</span>: <span class="p">{</span> <span class="k">"p99_latency_ms"</span>: <span class="n">500</span>, <span class="k">"uptime"</span>: <span class="s">"99.9%"</span> <span class="p">}</span>,
-  <span class="k">"updatedAt"</span>: <span class="s">"2026-03-01T00:00:00Z"</span>
-<span class="p">}</span></pre>
-        </div>
-
-        <h3>The Upvote Record (Proof of Use)</h3>
+        <h3>The Report Record</h3>
         <p>
-          When an agent uses a tool and gets good results, it creates an upvote
-          &mdash; a quality signal with
-          <strong
-            >proof that the agent actually paid for and used the tool</strong
-          >:
+          When an agent calls a tool directly, it can report back for
+          reputation:
         </p>
 
         <div class="code-block">
           <div class="code-header">
-            com.toolshed.tool.upvote/5kqw3x @ agent-company-xyz.com
+            invocation report (stored in local ledger)
           </div>
-          <pre><span class="p">{</span>
-  <span class="k">"subject"</span>: <span class="s">"com.toolshed.tool/fraud-detection-v3@acme.com"</span>,
-  <span class="k">"proof"</span>: <span class="p">{</span>
-    <span class="k">"payment_method"</span>: <span class="s">"stripe_credits"</span>,
-    <span class="k">"meter_event_id"</span>: <span class="s">"mevt_1abc123def456"</span>,
-    <span class="k">"amount"</span>: <span class="n">0.005</span>,
-    <span class="k">"currency"</span>: <span class="s">"usd"</span>,
-    <span class="k">"invocation_hash"</span>: <span class="s">"sha256:deadbeef..."</span>,
-    <span class="k">"ledger_commit"</span>: <span class="s">"dolt:76qerj11u38il8rb..."</span>,
-    <span class="k">"called_at"</span>: <span class="s">"2026-03-15T14:23:00Z"</span>
-  <span class="p">}</span>,
-  <span class="k">"evaluation"</span>: <span class="p">{</span>
-    <span class="k">"quality"</span>: <span class="n">5</span>,
-    <span class="k">"latency_met_sla"</span>: <span class="n">true</span>,
-    <span class="k">"schema_valid"</span>: <span class="n">true</span>,
-    <span class="k">"useful"</span>: <span class="n">true</span>
-  <span class="p">}</span>
-<span class="p">}</span></pre>
+          <pre><span class="k">id</span>: <span class="s">inv_abc123</span>
+<span class="k">tool_id</span>: <span class="s">acme.com/fraud-detection</span>
+<span class="k">definition_hash</span>: <span class="s">sha256:a1b2c3</span>
+<span class="k">key_fingerprint</span>: <span class="s">SHA256:nThbg6kXUpJW...</span>
+<span class="k">input_hash</span>: <span class="s">sha256:deadbeef</span>
+<span class="k">output_hash</span>: <span class="s">sha256:cafebabe</span>
+<span class="k">latency_ms</span>: <span class="n">45</span>
+<span class="k">success</span>: <span class="n">true</span>
+<span class="k">created_at</span>: <span class="s">"2026-03-15T14:23:00Z"</span></pre>
         </div>
+
+        <p>ToolShed never sees the actual inputs or outputs. Only hashes.</p>
+
+        <h3>The Upvote Record</h3>
+        <p>
+          After reporting a call, an agent can upvote. The system checks: has
+          this SSH key reported an invocation of this tool? If yes, the upvote
+          is linked. If no, it's rejected.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">upvote (stored in shared registry)</div>
+          <pre><span class="k">id</span>: <span class="s">up_xyz789</span>
+<span class="k">tool_id</span>: <span class="s">acme.com/fraud-detection</span>
+<span class="k">key_fingerprint</span>: <span class="s">SHA256:nThbg6kXUpJW...</span>
+<span class="k">invocation_id</span>: <span class="s">inv_abc123</span>
+<span class="k">invocation_hash</span>: <span class="s">sha256:...</span>
+<span class="k">ledger_commit</span>: <span class="s">dolt:76qerj...</span>
+<span class="k">quality</span>: <span class="n">5</span>
+<span class="k">useful</span>: <span class="n">true</span>
+<span class="k">created_at</span>: <span class="s">"2026-03-15T14:23:05Z"</span></pre>
+        </div>
+
+        <p>
+          No payment proof needed. The SSH key + ledger invocation record
+          <strong>is</strong> the proof. You can't upvote a tool you haven't
+          called.
+        </p>
 
         <h3>Summary of Record Types</h3>
         <div class="record-grid">
@@ -1756,26 +1977,31 @@
           </div>
           <div class="record-item">
             <h5>Tool Listing</h5>
-            <div class="record-path">com.toolshed.tool/</div>
+            <div class="record-path">tool_listings</div>
             <p>
-              Mutable metadata: name, pricing, SLA &mdash; points to a
+              Mutable metadata: name, pricing, description &rarr; points to a
               definition
             </p>
           </div>
           <div class="record-item">
-            <h5>Account</h5>
-            <div class="record-path">accounts</div>
-            <p>Provider/operator identity, domain, Stripe Account ID</p>
-          </div>
-          <div class="record-item">
-            <h5>Invocation Log</h5>
-            <div class="record-path">com.toolshed.tool.invocation/</div>
-            <p>Record of each call: input hash, output hash, timing</p>
+            <h5>Report</h5>
+            <div class="record-path">invocations (local only)</div>
+            <p>Record of a call: hashes, timing, success</p>
           </div>
           <div class="record-item">
             <h5>Upvote</h5>
-            <div class="record-path">com.toolshed.tool.upvote/</div>
-            <p>Quality signal with proof-of-use</p>
+            <div class="record-path">upvotes</div>
+            <p>Quality signal with proof-of-use (linked to a report)</p>
+          </div>
+          <div class="record-item">
+            <h5>Account</h5>
+            <div class="record-path">accounts</div>
+            <p>SSH key fingerprint, domain, verification status</p>
+          </div>
+          <div class="record-item">
+            <h5>Reputation</h5>
+            <div class="record-path">reputation (computed)</div>
+            <p>Materialized view from upvotes and reports</p>
           </div>
         </div>
       </div>
@@ -1830,10 +2056,9 @@
             </p>
           </div>
           <div class="problem-card">
-            <h4>No deprecation flags</h4>
+            <h4>Version labels are cosmetic</h4>
             <p>
-              Old hashes just exist. Stale reputation naturally pushes agents
-              toward newer definitions.
+              &ldquo;3.1.0&rdquo; is for humans. The hash is the real identity.
             </p>
           </div>
           <div class="problem-card">
@@ -1852,17 +2077,24 @@
     <section id="payment" style="background: var(--bg-raised)">
       <div class="container reveal">
         <div class="section-label">Payment</div>
-        <h2>Payment is just a field on the record</h2>
+        <h2>Payment is decoupled</h2>
         <p>
-          No special payment subsystem. The provider declares "send cash this
-          way" as part of their tool registration. The agent reads the payment
-          methods, picks one it supports, pays, and calls the tool.
+          <strong>ToolShed is not a payment processor.</strong> Payment is a
+          field on the tool record &mdash; the provider declares &ldquo;here's
+          how to pay me&rdquo; and the agent/operator settles directly with the
+          provider. ToolShed's job is to make tools findable and accountable,
+          not to move money.
+        </p>
+        <p>
+          Free tools are first-class citizens. The registry works without any
+          payment infrastructure.
         </p>
 
-        <h3>Payment Methods</h3>
+        <h3>Payment Methods on the Tool Record</h3>
         <div class="payment-pills">
-          <span class="payment-pill active">Stripe Metered (MVP)</span>
           <span class="payment-pill active">Free / Open Source</span>
+          <span class="payment-pill active">Stripe Connect</span>
+          <span class="payment-pill active">API Key</span>
           <span class="payment-pill future"
             ><i data-lucide="zap" class="lucide-inline"></i> Lightning
             (L402)</span
@@ -1874,38 +2106,36 @@
         </div>
 
         <div class="code-block" style="margin-top: 1.5rem">
-          <div class="code-header">
-            payment field &mdash; extensible via lexicons
-          </div>
-          <pre><span class="c">// MVP: Stripe Connect (credit drawdown + destination charges)</span>
-<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"methods"</span>: [<span class="p">{</span>
-  <span class="k">"type"</span>: <span class="s">"stripe_connect"</span>,
-  <span class="k">"provider_account"</span>: <span class="s">"acct_acme_abc123"</span>,
-  <span class="k">"price_per_call"</span>: <span class="n">0.005</span>,
-  <span class="k">"currency"</span>: <span class="s">"usd"</span>
-<span class="p">}]</span> <span class="p">}</span>
+          <div class="code-header">payment field &mdash; extensible</div>
+          <pre><span class="k">pricing</span>:
+  <span class="k">model</span>: <span class="s">free</span>    <span class="c"># or per_call, subscription, contact</span>
 
-<span class="c">// Open source / community tools</span>
-<span class="k">"payment"</span>: <span class="p">{</span> <span class="k">"methods"</span>: [<span class="p">{</span> <span class="k">"type"</span>: <span class="s">"free"</span> <span class="p">}]</span> <span class="p">}</span></pre>
+<span class="k">payment</span>:
+  <span class="k">methods</span>:
+    - <span class="k">type</span>: <span class="s">free</span>
+    - <span class="k">type</span>: <span class="s">stripe_connect</span>
+      <span class="k">account_id</span>: <span class="s">acct_acme_abc123</span>
+    - <span class="k">type</span>: <span class="s">api_key</span>
+      <span class="k">signup_url</span>: <span class="s">https://acme.com/developers</span>
+    - <span class="k">type</span>: <span class="s">l402</span>
+      <span class="k">endpoint</span>: <span class="s">https://api.acme.com/l402/fraud</span>
+      <span class="k">price_sats</span>: <span class="n">50</span></pre>
         </div>
 
-        <h3>Extensible via Lexicons</h3>
         <p>
-          New payment methods don't require protocol changes. Anyone publishes a
-          new lexicon:
+          The agent reads the payment methods and decides how to proceed. If
+          it's free, just call. If it's Stripe, the operator handles billing. If
+          it's L402, the agent pays per-call with Lightning. ToolShed surfaces
+          this information &mdash; it doesn't process any of it.
         </p>
-        <div class="code-block">
-          <div class="code-header">payment lexicon namespace examples</div>
-          <pre><span class="t">com.toolshed.defs</span><span class="c">#paymentStripeConnect</span>  <span class="c">&larr; MVP (credits + destination charges)</span>
-<span class="t">com.toolshed.defs</span><span class="c">#paymentFree</span>           <span class="c">&larr; open source / community tools</span>
-<span class="t">com.toolshed.defs</span><span class="c">#paymentLightning</span>      <span class="c">&larr; machine-native micropayments (no gateway needed)</span>
-<span class="t">com.toolshed.defs</span><span class="c">#paymentCashu</span>          <span class="c">&larr; bearer token micropayments (no gateway needed)</span></pre>
-        </div>
-        <p>
-          Validate on read. If a tool lists a payment method the agent doesn't
-          understand, the agent skips it and picks one it does. If it can't pay
-          at all, it moves on to the next tool.
-        </p>
+
+        <blockquote>
+          <p>
+            <strong>ToolShed must compete on value</strong> (discovery,
+            reputation, convenience) rather than being a required payment
+            intermediary.
+          </p>
+        </blockquote>
       </div>
     </section>
 
@@ -1917,23 +2147,35 @@
         <p>
           Reputation is not stored on the tool. It's
           <strong>derived</strong> &mdash; a materialized view computed from all
-          upvote records in the Dolt registry. Nobody owns the score. Nobody can
-          inflate it without paying for real usage. Anybody can compute it.
+          upvote records and invocation reports in the Dolt registry. Nobody
+          owns the score. Nobody can inflate it without actually calling the
+          tool. Anybody can compute it.
         </p>
 
         <div class="code-block">
           <div class="code-header">reputation computation (pseudocode)</div>
-          <pre><span class="c">-- REPUTATION for acme's fraud-detection-v3:</span>
+          <pre><span class="c">-- REPUTATION for acme.com/fraud-detection:</span>
 
-<span class="k">SELECT</span> <span class="t">AVG</span>(quality_score), <span class="t">COUNT</span>(*), <span class="t">COUNT</span>(<span class="k">DISTINCT</span> caller_domain)
+<span class="k">SELECT</span> <span class="t">AVG</span>(quality_score), <span class="t">COUNT</span>(*), <span class="t">COUNT</span>(<span class="k">DISTINCT</span> key_fingerprint)
 <span class="k">FROM</span> upvotes
-<span class="k">WHERE</span> tool_id = <span class="s">'com.toolshed.tool/fraud-detection-v3@acme.com'</span>
-  <span class="k">AND</span> proof_is_valid = <span class="n">true</span>    <span class="c">-- payment receipt checks out</span>
-  <span class="k">AND</span> invocation_exists = <span class="n">true</span> <span class="c">-- hash found in ledger</span>
+<span class="k">WHERE</span> tool_id = <span class="s">'acme.com/fraud-detection'</span>
+  <span class="k">AND</span> invocation_exists = <span class="n">true</span>  <span class="c">-- linked to a valid report in ledger</span>
 
 <span class="c">-- Nobody owns this score.</span>
-<span class="c">-- Nobody can inflate it without paying for real usage.</span>
+<span class="c">-- Nobody can inflate it without actually calling the tool.</span>
 <span class="c">-- Anybody can compute it (clone the registry, run the query).</span></pre>
+        </div>
+
+        <h3>SSH Identity Makes Upvotes Simple</h3>
+        <p>The v2 proof model is much simpler than payment-based proof:</p>
+
+        <div class="code-block">
+          <div class="code-header">proof of use</div>
+          <pre>1. Agent calls tool directly &rarr; reports back with hashes and timing
+2. Agent upvotes: <span class="k">ssh toolshed.sh upvote acme.com/fraud --quality 4</span>
+3. Registry checks ledger: <span class="s">"has this SSH key reported a call to this tool?"</span>
+   &rarr; Yes, report inv_abc123 exists &rarr; upvote accepted and linked
+4. No payment needed. <span class="k">The ledger IS the proof.</span></pre>
         </div>
 
         <h3>Anti-Gaming Properties</h3>
@@ -1942,44 +2184,43 @@
             <thead>
               <tr>
                 <th>Attack</th>
-                <th>Why It Fails</th>
+                <th>Why It's Hard</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><span class="attack-label">Fake upvotes</span> (sybil)</td>
+                <td><span class="attack-label">Sybil</span> (fake accounts)</td>
                 <td>
-                  Proof-of-use required. No valid payment receipt = unverifiable
-                  upvote.
+                  New SSH keys have zero history. Upvotes from fresh keys are
+                  near-worthless.
                 </td>
               </tr>
               <tr>
                 <td><span class="attack-label">Self-upvoting</span></td>
                 <td>
-                  Provider pays themselves real money.
-                  <code>caller_did == provider_did</code> &mdash; trivial to
-                  filter.
+                  Must call your own tool and report it. Key matches provider
+                  &rarr; filtered. Patterns detectable.
                 </td>
               </tr>
               <tr>
-                <td><span class="attack-label">Wash trading</span></td>
+                <td><span class="attack-label">Ballot stuffing</span></td>
                 <td>
-                  Detectable via diversity-of-upvoters weighting. PageRank-style
-                  graph analysis.
+                  Requires actual invocation reports per key. Can't upvote
+                  without reporting a call.
                 </td>
               </tr>
               <tr>
-                <td><span class="attack-label">Buying upvotes</span></td>
+                <td><span class="attack-label">Drive-by upvotes</span></td>
                 <td>
-                  Requires real usage and real payment &mdash; the tool still
-                  has to deliver quality.
+                  Can't upvote without a linked invocation report. The ledger is
+                  the gatekeeper.
                 </td>
               </tr>
               <tr>
                 <td><span class="attack-label">Deleting bad reviews</span></td>
                 <td>
-                  Impossible. Upvotes live in the reviewer's repo, not the
-                  provider's.
+                  Impossible. Upvotes live in the shared registry. Dolt commits
+                  are immutable.
                 </td>
               </tr>
             </tbody>
@@ -1996,31 +2237,36 @@
             <strong
               ><i data-lucide="flame" class="lucide-inline"></i> Trending
               Tools</strong
-            ><span>Most upvotes this week</span>
+            >
+            <span>Most upvotes this week</span>
           </div>
           <div class="disc-item">
             <strong
               ><i data-lucide="shield-check" class="lucide-inline"></i> Most
               Reliable</strong
-            ><span>Highest SLA compliance</span>
+            >
+            <span>Highest SLA compliance</span>
           </div>
           <div class="disc-item">
             <strong
               ><i data-lucide="handshake" class="lucide-inline"></i> My Network
               Trusts</strong
-            ><span>Upvoted by companies you trust</span>
+            >
+            <span>Upvoted by companies you trust</span>
           </div>
           <div class="disc-item">
             <strong
               ><i data-lucide="trending-up" class="lucide-inline"></i> Best for
               Finance</strong
-            ><span>Filtered by context.task_type</span>
+            >
+            <span>Filtered by domain/category</span>
           </div>
           <div class="disc-item">
             <strong
               ><i data-lucide="badge-dollar-sign" class="lucide-inline"></i>
               Budget Picks</strong
-            ><span>Highest quality-to-price ratio</span>
+            >
+            <span>Highest quality-to-price ratio</span>
           </div>
         </div>
         <p>
@@ -2038,38 +2284,47 @@
         <h2>The Dolt Backbone</h2>
         <p>
           Every table gets <strong>Git-style version control for free</strong>.
-          Time-travel queries, schema diffs, branch-and-merge for tool
-          configurations, and a tamper-evident audit trail.
+          Time-travel queries, schema diffs, branch-and-merge, and a
+          tamper-evident audit trail.
         </p>
 
         <div class="code-block">
           <div class="code-header">registry schema (SQL)</div>
-          <pre><span class="c">-- Tool definitions (immutable, content-addressed)</span>
-<span class="c">-- Append-only: rows are never updated or deleted</span>
+          <pre><span class="c">-- Accounts (SSH key identity)</span>
+<span class="k">CREATE TABLE</span> <span class="t">accounts</span> (
+    id              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,    <span class="c">-- SHA256:nThbg6kXUpJW...</span>
+    domain          <span class="t">VARCHAR</span>(<span class="n">255</span>),
+    domain_verified <span class="t">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="n">FALSE</span>,
+    key_type        <span class="t">VARCHAR</span>(<span class="n">32</span>),                 <span class="c">-- ssh-ed25519, ssh-rsa, etc.</span>
+    public_key      <span class="t">TEXT</span>,
+    created_at      <span class="t">DATETIME</span>,
+    updated_at      <span class="t">DATETIME</span>
+);
+
+<span class="c">-- Tool definitions (immutable, content-addressed)</span>
 <span class="k">CREATE TABLE</span> <span class="t">tool_definitions</span> (
-    content_hash      <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">PRIMARY KEY</span>,    <span class="c">-- sha256 of (schema + invocation + provider)</span>
+    content_hash      <span class="t">VARCHAR</span>(<span class="n">71</span>) <span class="k">PRIMARY KEY</span>,    <span class="c">-- sha256:... of (schema + invocation + capabilities + domain)</span>
+    provider_account  <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
     provider_domain   <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    provider_did      <span class="t">VARCHAR</span>(<span class="n">255</span>),                <span class="c">-- Tier 2, nullable</span>
     schema_json       <span class="t">JSON</span> <span class="k">NOT NULL</span>,
     invocation_json   <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    capabilities      <span class="t">JSON</span>,
-    created_at        <span class="t">DATETIME</span>
+    capabilities_json <span class="t">JSON</span>,
+    created_at        <span class="t">DATETIME</span>,
+    <span class="k">FOREIGN KEY</span> (provider_account) <span class="k">REFERENCES</span> accounts(id)
 );
 
 <span class="c">-- Tool listings (mutable, human-readable metadata)</span>
-<span class="c">-- Points to a tool_definition via content_hash</span>
 <span class="k">CREATE TABLE</span> <span class="t">tool_listings</span> (
-    id                <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
-    definition_hash   <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,       <span class="c">-- points to tool_definitions.content_hash</span>
+    id                <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,  <span class="c">-- acme.com/fraud-detection</span>
+    definition_hash   <span class="t">VARCHAR</span>(<span class="n">71</span>) <span class="k">NOT NULL</span>,
+    provider_account  <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
     provider_domain   <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    provider_did      <span class="t">VARCHAR</span>(<span class="n">255</span>),                <span class="c">-- Tier 2, nullable</span>
     name              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    version_label     <span class="t">VARCHAR</span>(<span class="n">32</span>),                 <span class="c">-- cosmetic, like a Git tag</span>
+    version_label     <span class="t">VARCHAR</span>(<span class="n">32</span>),
     description       <span class="t">TEXT</span>,
-    pricing_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    payment_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    sla_json          <span class="t">JSON</span>,
-    capabilities      <span class="t">JSON</span>,
+    pricing_json      <span class="t">JSON</span>,
+    payment_json      <span class="t">JSON</span>,
+    source            <span class="t">VARCHAR</span>(<span class="n">32</span>),               <span class="c">-- 'push' or 'crawl'</span>
     created_at        <span class="t">DATETIME</span>,
     updated_at        <span class="t">DATETIME</span>,
     <span class="k">FOREIGN KEY</span> (definition_hash) <span class="k">REFERENCES</span> tool_definitions(content_hash)
@@ -2079,27 +2334,28 @@
 <span class="k">CREATE TABLE</span> <span class="t">upvotes</span> (
     id              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
     tool_id         <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    caller_domain   <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    key_fingerprint <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    invocation_id   <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
     quality_score   <span class="t">INT</span>,
-    proof_json      <span class="t">JSON</span> <span class="k">NOT NULL</span>,
-    context_json    <span class="t">JSON</span>,
+    useful          <span class="t">BOOLEAN</span>,
     created_at      <span class="t">DATETIME</span>,
     <span class="k">FOREIGN KEY</span> (tool_id) <span class="k">REFERENCES</span> tool_listings(id)
 );
 
-<span class="c">-- Invocation ledger</span>
+<span class="c">-- Invocations (local to each node &mdash; never shared)</span>
 <span class="k">CREATE TABLE</span> <span class="t">invocations</span> (
     id              <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
-    tool_id           <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
-    definition_hash   <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,       <span class="c">-- exact definition called (immutable pin)</span>
-    input_hash        <span class="t">VARCHAR</span>(<span class="n">64</span>) <span class="k">NOT NULL</span>,
-    output_hash     <span class="t">VARCHAR</span>(<span class="n">64</span>),
-    payment_proof   <span class="t">VARCHAR</span>(<span class="n">500</span>),
+    tool_id         <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    definition_hash <span class="t">VARCHAR</span>(<span class="n">71</span>) <span class="k">NOT NULL</span>,
+    key_fingerprint <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">NOT NULL</span>,
+    input_hash      <span class="t">VARCHAR</span>(<span class="n">71</span>),
+    output_hash     <span class="t">VARCHAR</span>(<span class="n">71</span>),
     latency_ms      <span class="t">INT</span>,
+    success         <span class="t">BOOLEAN</span>,
     created_at      <span class="t">DATETIME</span>
 );
 
-<span class="c">-- Reputation (materialized view, recomputed periodically)</span>
+<span class="c">-- Reputation (materialized view)</span>
 <span class="k">CREATE TABLE</span> <span class="t">reputation</span> (
     tool_id           <span class="t">VARCHAR</span>(<span class="n">255</span>) <span class="k">PRIMARY KEY</span>,
     verified_upvotes  <span class="t">INT</span> <span class="k">DEFAULT</span> <span class="n">0</span>,
@@ -2126,14 +2382,20 @@
           </div>
           <div class="flow-step">
             <p>
-              They submit a <strong>tool record</strong> (JSON) to the Dolt
-              registry &mdash; schema, endpoint, pricing, payment
+              They write a <code>toolshed.yaml</code> file with schema,
+              endpoint, pricing, payment
             </p>
           </div>
           <div class="flow-step">
             <p>
-              They verify domain ownership via <code>DNS TXT</code> record or
-              <code>.well-known</code>
+              They push it:
+              <code>ssh toolshed.sh register &lt; toolshed.yaml</code>
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Optionally: verify domain ownership via
+              <code>ssh toolshed.sh verify acme.com</code>
             </p>
           </div>
           <div class="flow-step">
@@ -2148,23 +2410,31 @@
           </div>
           <div class="flow-step">
             <p>
-              Queries the Dolt-backed registry:
-              <code>capabilities LIKE '%fraud%' ORDER BY reputation DESC</code>
+              Searches: <code>ssh toolshed.sh search "fraud detection"</code>
             </p>
           </div>
           <div class="flow-step">
-            <p>Gets ranked tools, validates schema matches its needs</p>
+            <p>Gets ranked YAML results, validates schema matches its needs</p>
           </div>
           <div class="flow-step">
             <p>
-              Reads the payment field, calls the tool &mdash; gateway reports
-              usage to Stripe
+              Calls the tool <strong>directly</strong>:
+              <code>POST https://api.acme.com/fraud { ... }</code>
             </p>
           </div>
           <div class="flow-step">
             <p>
-              Gets result, validates against schema, creates invocation + upvote
-              records
+              Optionally reports:
+              <code
+                >ssh toolshed.sh report --tool acme.com/fraud --latency
+                45ms</code
+              >
+            </p>
+          </div>
+          <div class="flow-step">
+            <p>
+              Optionally upvotes:
+              <code>ssh toolshed.sh upvote acme.com/fraud --quality 5</code>
             </p>
           </div>
         </div>
@@ -2182,7 +2452,7 @@
               More visibility in search<span class="node-arrow">&rarr;</span>
             </div>
             <div class="loop-node">
-              More agents discover &amp; pay<span class="node-arrow"
+              More agents discover &amp; use<span class="node-arrow"
                 >&rarr;</span
               >
             </div>
@@ -2207,60 +2477,30 @@
       </div>
     </section>
 
-    <!-- ADOPTION TIERS -->
+    <!-- BUSINESS MODEL -->
     <section style="background: var(--bg-raised)">
       <div class="container reveal">
-        <div class="section-label">Adoption</div>
-        <h2>Start simple. Upgrade when ready.</h2>
+        <div class="section-label">Business Model</div>
+        <h2>The free, open default</h2>
         <p>
-          Companies start with the simplest possible on-ramp and upgrade when
-          the value is proven.
+          The registry is free. Search is free. Registration is free. Upvotes
+          are free. The entire discovery and reputation system works without
+          payment.
         </p>
 
-        <div class="tier-grid">
-          <div class="tier-card featured">
-            <div class="tier-num">Tier 1 &mdash; MVP</div>
-            <h4>Dolt Registry</h4>
-            <dl>
-              <dt>Identity</dt>
-              <dd>Domain ownership (DNS TXT or .well-known)</dd>
-              <dt>Payment</dt>
-              <dd>Stripe metered billing (USD)</dd>
-              <dt>Discovery</dt>
-              <dd>SQL queries against the Dolt registry</dd>
-              <dt>Reputation</dt>
-              <dd>Proof-of-use upvotes in Dolt</dd>
-              <dt>Requires</dt>
-              <dd>
-                <strong>A JSON file and a domain you own. That's it.</strong>
-              </dd>
-            </dl>
-          </div>
-          <div class="tier-card">
-            <div class="tier-num">Tier 2 &mdash; Upgrade</div>
-            <h4>AT Protocol Integration</h4>
-            <dl>
-              <dt>Identity</dt>
-              <dd>DID anchored to domain (did:plc &rarr; @acme.com)</dd>
-              <dt>Payment</dt>
-              <dd>Stripe + Lightning, Cashu</dd>
-              <dt>Discovery</dt>
-              <dd>ToolShed feeds + cross-network at:// queries</dd>
-              <dt>Reputation</dt>
-              <dd>
-                Upvotes in caller's own repo &mdash; portable across registries
-              </dd>
-              <dt>Migration</dt>
-              <dd>All existing history and reputation carries over</dd>
-            </dl>
-          </div>
+        <div class="code-block">
+          <div class="code-header">the moat</div>
+          <pre><span class="c">Stage 1 (MVP):</span>     The registry &mdash; seed it with real tools, make discovery work
+<span class="c">Stage 2 (Growth):</span>  Network effects &mdash; providers and agents concentrate here
+<span class="c">Stage 3 (Mature):</span>  Reputation data &mdash; the upvote/report graph is the real value
+<span class="c">Stage 4 (Scale):</span>   The registry IS the moat &mdash; like npm, whoever has the packages wins</pre>
         </div>
-        <p style="margin-top: 1.5rem">
-          Both tiers write to the same Dolt tables. A Tier 1 tool and a Tier 2
-          tool sit side by side. The only difference is whether
-          <code>at_uri</code> and <code>provider_did</code> are populated.
-          Agents don't care &mdash; they see the same schema, same pricing, same
-          endpoint.
+
+        <p>
+          Nobody complains that GitHub is &ldquo;centralized&rdquo; because Git
+          is open and you can leave. Same energy. The registry is a Dolt
+          database anyone can clone. The SSH server is open source anyone can
+          run.
         </p>
       </div>
     </section>
@@ -2272,28 +2512,34 @@
         <h2>What this is <em>not</em></h2>
         <ul class="not-list">
           <li>
+            <strong>Not a proxy</strong> &mdash; Tools are called directly by
+            the agent. ToolShed is never in the call path.
+          </li>
+          <li>
+            <strong>Not a payment processor</strong> &mdash; Payment info is on
+            the tool record. Settlement is between parties.
+          </li>
+          <li>
             <strong>Not a runtime</strong> &mdash; Tools run on the provider's
-            infrastructure. The ToolShed doesn't execute anything.
+            infrastructure. ToolShed doesn't execute anything.
+          </li>
+          <li>
+            <strong>Not a data store</strong> &mdash; ToolShed never sees call
+            inputs or outputs. Only hashes in reports.
           </li>
           <li>
             <strong>Not an MCP replacement</strong> &mdash; MCP, REST, gRPC are
-            invocation protocols. The ToolShed is discovery, payment, and
-            reputation. They're complementary.
+            invocation protocols. ToolShed is discovery and reputation. They're
+            complementary.
           </li>
           <li>
-            <strong>Not a blockchain</strong> &mdash; Dolt has Git semantics.
-            It's versioned, auditable, tamper-evident &mdash; but not a
-            distributed consensus system.
+            <strong>Not a blockchain</strong> &mdash; Dolt has Git semantics
+            &mdash; versioned and auditable, but not distributed consensus.
           </li>
           <li>
-            <strong>Not a Bluesky app</strong> &mdash; Uses AT Protocol's design
-            patterns but doesn't depend on Bluesky infrastructure or social
-            graph.
-          </li>
-          <li>
-            <strong>Not centralized</strong> &mdash; The registry is a Dolt DB
-            anyone can clone. Anyone can run their own node, compute reputation,
-            or build discovery.
+            <strong>Not inescapably centralized</strong> &mdash; The registry is
+            a Dolt database anyone can clone. The server is open source anyone
+            can run.
           </li>
         </ul>
       </div>
@@ -2320,33 +2566,38 @@
                 </td>
               </tr>
               <tr>
-                <td>TLS Certificates</td>
-                <td>Domain verification / DIDs &mdash; prove your identity</td>
+                <td><code>/.well-known/</code></td>
+                <td>Provider self-declaration of tools</td>
               </tr>
               <tr>
                 <td>npm Registry</td>
-                <td>Tool registry &mdash; search, install, version</td>
+                <td>Tool registry &mdash; search, discover, version</td>
               </tr>
               <tr>
-                <td>App Store Ratings</td>
-                <td>Reputation &mdash; but only from verified purchasers</td>
+                <td>npmjs.com</td>
+                <td>toolshed.sh &mdash; the hosted service</td>
               </tr>
               <tr>
-                <td>Stripe Connect</td>
-                <td>Payment &mdash; provider declares how to be paid</td>
+                <td>SSH authorized_keys</td>
+                <td>Identity &mdash; your key is your account</td>
               </tr>
               <tr>
-                <td>Google PageRank</td>
+                <td>terminal.shop</td>
+                <td>SSH as the primary user interface</td>
+              </tr>
+              <tr>
+                <td>Unison hashes</td>
+                <td>Content-addressed tool definitions</td>
+              </tr>
+              <tr>
+                <td>App Store ratings</td>
                 <td>
-                  Discovery algorithms &mdash; anyone can rank differently
+                  Reputation &mdash; only from verified users with proof-of-use
                 </td>
               </tr>
               <tr>
                 <td>Git + GitHub</td>
-                <td>
-                  Dolt + DoltHub &mdash; version control for registry &amp;
-                  ledger
-                </td>
+                <td>Dolt + DoltHub &mdash; version control for the registry</td>
               </tr>
             </tbody>
           </table>
@@ -2354,8 +2605,8 @@
         <blockquote style="margin-top: 2rem">
           <p>
             <strong
-              >npm + Stripe + Dolt, for AI agent tool calls, with AT Protocol's
-              data philosophy.</strong
+              >npm + SSH + Dolt, for AI agent tool calls, with AT Protocol's
+              data philosophy and terminal.shop's interface model.</strong
             >
           </p>
         </blockquote>
@@ -2372,53 +2623,49 @@
           style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))"
         >
           <div class="problem-card">
-            <h4>Lexicon Governance</h4>
+            <h4>Report Honesty</h4>
             <p>
-              Who defines <code>com.toolshed.*</code> lexicons? A foundation? A
-              GitHub org? Follow AT Protocol norms &mdash; publish early, evolve
-              carefully, let the ecosystem fork if needed.
+              Self-reported invocation data could be fabricated. Mitigations:
+              key reputation weighting, provider counter-attestation,
+              statistical anomaly detection.
             </p>
           </div>
           <div class="problem-card">
-            <h4>Settlement Cadence</h4>
+            <h4>Provider Counter-Attestation</h4>
             <p>
-              When operators pre-fund credits, the platform holds the float
-              until provider payout. Daily? Weekly? Real-time? Provider trust
-              correlates with payout speed.
+              Should providers optionally report invocations too? When both
+              sides agree, strong signal. When they don't, weak signal.
             </p>
           </div>
           <div class="problem-card">
-            <h4>Credit Balance Cache</h4>
+            <h4>Agentic Payments</h4>
             <p>
-              MVP is single-node with a local cache &mdash; no double-spend
-              risk. Multi-node needs sticky routing or a shared cache with
-              distributed locking. Scale problem, not a v1 problem.
+              Stripe's Agent SDK, L402, Cashu &mdash; which payment systems work
+              well for agent-to-provider settlement? The tool record supports
+              declaring multiple methods.
             </p>
           </div>
           <div class="problem-card">
-            <h4>Upvote Adoption</h4>
+            <h4>Crawl Frequency</h4>
             <p>
-              Tools with lots of usage but few upvotes have a visibility gap.
-              Consider publishing invocation counts as a lightweight volume
-              signal alongside upvotes.
+              How often should ToolShed re-crawl
+              <code>/.well-known/toolshed.yaml</code>? Provider-triggered
+              refresh? Webhook? Poll?
             </p>
           </div>
           <div class="problem-card">
-            <h4>Agent Review Quality</h4>
+            <h4>Schema Evolution</h4>
             <p>
-              Early review quality will be mostly binary (worked vs. didn't).
-              Make <code>schema_valid</code> and
-              <code>latency_met_sla</code> the primary automated signals; treat
-              <code>quality</code> and <code>useful</code> as optional
-              enrichment.
+              When a provider updates their schema (new hash), how do agents
+              discover the migration path? Deprecation notices on old listings?
             </p>
           </div>
           <div class="problem-card">
-            <h4>Dispute Resolution</h4>
+            <h4>Search Ranking</h4>
             <p>
-              Clear-cut failures trigger automatic no-charge. Gray areas need
-              the Dolt ledger + Stripe meter reconciliation for auditable
-              evidence. Formal arbitration is still an open design problem.
+              With free registration, how to prevent the registry from being
+              flooded with low-quality tools? Reputation-weighted search helps,
+              but cold-start is hard.
             </p>
           </div>
         </div>
@@ -2435,87 +2682,82 @@
             href="https://atproto.com/guides/overview"
             target="_blank"
             rel="noopener"
-            >AT Protocol &mdash; Overview
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            AT Protocol &mdash; Overview
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
           <a
             href="https://overreacted.io/a-social-filesystem/"
             target="_blank"
             rel="noopener"
-            >"A Social Filesystem" &mdash; Dan Abramov
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            &ldquo;A Social Filesystem&rdquo; &mdash; Dan Abramov
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
+          <a href="https://terminal.shop" target="_blank" rel="noopener">
+            terminal.shop &mdash; SSH-first commerce
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
+          <a href="https://charm.sh" target="_blank" rel="noopener">
+            Charm Libraries &mdash; wish, bubbletea, lipgloss
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
           <a
             href="https://github.com/steveyegge/gastown"
             target="_blank"
             rel="noopener"
-            >Gas Town &mdash; Steve Yegge
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            Gas Town &mdash; Steve Yegge
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
           <a
             href="https://github.com/steveyegge/gastown/blob/main/docs/design/dolt-storage.md"
             target="_blank"
             rel="noopener"
-            >Gas Town &mdash; Dolt Storage Architecture
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
-          <a
-            href="https://github.com/steveyegge/gastown/blob/main/docs/design/mol-mall-design.md"
-            target="_blank"
-            rel="noopener"
-            >Gas Town &mdash; Mol Mall Design
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
-          <a
-            href="https://github.com/steveyegge/gastown/blob/main/docs/design/federation.md"
-            target="_blank"
-            rel="noopener"
-            >Gas Town &mdash; Federation
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            Gas Town &mdash; Dolt Storage Architecture
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
           <a
             href="https://docs.dolthub.com/introduction/what-is-dolt"
             target="_blank"
             rel="noopener"
-            >Dolt DB &mdash; What is Dolt?
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            Dolt DB &mdash; What is Dolt?
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
           <a
             href="https://www.dolthub.com/blog/2024-10-15-dolt-use-cases/"
             target="_blank"
             rel="noopener"
-            >Dolt DB &mdash; Use Cases
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            Dolt DB &mdash; Use Cases
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
           <a
             href="https://www.unison-lang.org/docs/the-big-idea/"
             target="_blank"
             rel="noopener"
-            >Unison &mdash; The Big Idea (content-addressed code)
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            Unison &mdash; The Big Idea (content-addressed code)
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
           <a
             href="https://docs.lightning.engineering/the-lightning-network/l402"
             target="_blank"
             rel="noopener"
-            >L402 (HTTP 402 + Lightning)
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
-          <a href="https://cashu.space" target="_blank" rel="noopener"
-            >Cashu &mdash; ecash protocol
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
-          <a
-            href="https://atproto.com/guides/lexicon"
-            target="_blank"
-            rel="noopener"
-            >Bluesky Lexicons
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
-          <a href="https://pdsls.dev" target="_blank" rel="noopener"
-            >pdsls &mdash; AT Protocol file browser
-            <i data-lucide="external-link" class="lucide-inline"></i
-          ></a>
+          >
+            L402 (HTTP 402 + Lightning)
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
+          <a href="https://cashu.space" target="_blank" rel="noopener">
+            Cashu &mdash; ecash protocol
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
+          <a href="https://github.com/stripe/ai" target="_blank" rel="noopener">
+            Stripe Agent SDK
+            <i data-lucide="external-link" class="lucide-inline"></i>
+          </a>
         </div>
       </div>
     </section>

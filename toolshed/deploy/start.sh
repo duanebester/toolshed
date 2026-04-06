@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -eu
+
+# ---------------------------------------------------------------------------
+# ToolShed entrypoint – starts Dolt SQL server + SSH server in one container
+# ---------------------------------------------------------------------------
+
+echo "==> Configuring Dolt identity..."
+dolt config --global --add user.email 'toolshed@toolshed.sh'
+dolt config --global --add user.name 'ToolShed'
+
+# Persistent volume mount on Fly
+DATA_DIR=/data/dolt
+
+# ---------------------------------------------------------------------------
+# Initialize the registry database (first deploy only)
+# ---------------------------------------------------------------------------
+if [ ! -d "$DATA_DIR/toolshed_registry/.dolt" ]; then
+    echo "==> Initializing registry database..."
+    mkdir -p "$DATA_DIR/toolshed_registry"
+    cd "$DATA_DIR/toolshed_registry"
+    dolt init --name 'ToolShed' --email 'toolshed@toolshed.sh'
+    dolt sql < /schema/registry/001_init.sql
+    dolt sql < /schema/registry/002_embeddings.sql
+    dolt add .
+    dolt commit -m "Initial registry schema"
+    dolt sql < /schema/registry/seed.sql
+    dolt add .
+    dolt commit -m "Seed data"
+    echo "==> Registry database initialised."
+else
+    echo "==> Registry database already exists, skipping init."
+fi
+
+# ---------------------------------------------------------------------------
+# Initialize the ledger database (first deploy only)
+# ---------------------------------------------------------------------------
+if [ ! -d "$DATA_DIR/toolshed_ledger/.dolt" ]; then
+    echo "==> Initializing ledger database..."
+    mkdir -p "$DATA_DIR/toolshed_ledger"
+    cd "$DATA_DIR/toolshed_ledger"
+    dolt init --name 'ToolShed' --email 'toolshed@toolshed.sh'
+    dolt sql < /schema/ledger/001_init.sql
+    dolt add .
+    dolt commit -m "Initial ledger schema"
+    echo "==> Ledger database initialised."
+else
+    echo "==> Ledger database already exists, skipping init."
+fi
+
+# ---------------------------------------------------------------------------
+# Create root@'%' user (connections from localhost within the container)
+# ---------------------------------------------------------------------------
+echo "==> Ensuring root@'%' user exists..."
+dolt --data-dir "$DATA_DIR" sql -q "
+    CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '';
+    GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Start Dolt SQL server (background)
+# ---------------------------------------------------------------------------
+echo "==> Starting Dolt SQL server..."
+dolt sql-server --host 0.0.0.0 --port 3306 --data-dir "$DATA_DIR" &
+DOLT_PID=$!
+
+# Clean up the Dolt process when the script exits
+trap "kill $DOLT_PID 2>/dev/null || true" EXIT
+
+# ---------------------------------------------------------------------------
+# Wait for Dolt to become ready
+# ---------------------------------------------------------------------------
+echo "==> Waiting for Dolt..."
+for i in $(seq 1 30); do
+    if dolt --data-dir "$DATA_DIR" sql -q "SELECT 1" >/dev/null 2>&1; then
+        echo "==> Dolt is ready."
+        break
+    fi
+    sleep 1
+done
+
+# ---------------------------------------------------------------------------
+# Configure environment for the SSH server
+# ---------------------------------------------------------------------------
+echo "==> Setting SSH server environment variables..."
+export TOOLSHED_SSH_PORT="${TOOLSHED_SSH_PORT:-2222}"
+export TOOLSHED_HOST_KEY_PATH="/data/ssh/toolshed_host_key"
+export TOOLSHED_REGISTRY_DSN="root@tcp(127.0.0.1:3306)/toolshed_registry?parseTime=true"
+export TOOLSHED_LEDGER_DSN="root@tcp(127.0.0.1:3306)/toolshed_ledger?parseTime=true"
+export TOOLSHED_WEB_PORT="${TOOLSHED_WEB_PORT:-8080}"
+export TOOLSHED_WEB_ROOT="/public"
+export TOOLSHED_MODEL_DIR="${TOOLSHED_MODEL_DIR:-/model}"
+export TOOLSHED_ONNX_LIB="${TOOLSHED_ONNX_LIB:-/usr/local/lib/libonnxruntime.so}"
+
+mkdir -p /data/ssh
+
+# ---------------------------------------------------------------------------
+# Start the SSH server (foreground, replaces this shell)
+# ---------------------------------------------------------------------------
+echo "==> Starting ToolShed SSH server on port ${TOOLSHED_SSH_PORT}..."
+exec toolshed-ssh

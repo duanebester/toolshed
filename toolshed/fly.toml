@@ -1,0 +1,96 @@
+# fly.toml — ToolShed: static site + SSH server
+#
+# Serves two things from one app:
+#   • HTTPS on 443 / HTTP on 80 → static website (toolshed.sh)
+#   • TCP on port 22            → SSH server (ssh toolshed.sh)
+#
+# ============================================================================
+# Deploy sequence
+# ============================================================================
+#
+#   1. Install the Fly CLI: https://fly.io/docs/hands-on/install-flyctl/
+#
+#   2. Create the app (first time only):
+#        fly launch --config deploy/fly.toml --no-deploy
+#
+#   3. Create the persistent volume (first time only):
+#        fly volumes create toolshed_data --region iad --size 1
+#
+#   4. Allocate a dedicated IPv4 (required for port 22 SSH):
+#        fly ips allocate-v4
+#
+#   5. Deploy:
+#        fly deploy --config deploy/fly.toml
+#
+# ============================================================================
+# Connecting
+# ============================================================================
+#
+#   Website:  https://toolshed.sh
+#   SSH:      ssh toolshed.sh
+#   SSH+cmd:  ssh toolshed.sh search "fraud detection"
+#
+# ============================================================================
+
+app = "toolshed-ssh"
+primary_region = "iad"
+
+[build]
+  dockerfile = "deploy/Dockerfile"
+
+# ---------------------------------------------------------------------------
+# Static website — Fly terminates TLS and forwards to internal port 8080.
+# ---------------------------------------------------------------------------
+[[services]]
+  internal_port = 8080
+  protocol      = "tcp"
+
+  [services.concurrency]
+    type       = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+  [[services.ports]]
+    handlers = ["http"]
+    port     = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port     = 443
+
+  [[services.http_checks]]
+    interval        = "10s"
+    timeout         = "2s"
+    grace_period    = "10s"
+    method          = "GET"
+    path            = "/"
+
+# ---------------------------------------------------------------------------
+# SSH server — raw TCP on port 22. Requires a dedicated IPv4 address.
+# Allocate with: fly ips allocate-v4
+# ---------------------------------------------------------------------------
+[[services]]
+  internal_port = 2222
+  protocol      = "tcp"
+
+  [[services.ports]]
+    port = 22
+
+# ---------------------------------------------------------------------------
+# Persistent volume for Dolt databases + SSH host key.
+# The host key MUST survive deploys — otherwise every client sees a
+# "REMOTE HOST IDENTIFICATION HAS CHANGED" warning after each release.
+#
+# Create before first deploy:
+#   fly volumes create toolshed_data --region iad --size 1
+# ---------------------------------------------------------------------------
+[mounts]
+  source      = "toolshed_data"
+  destination = "/data"
+
+# ---------------------------------------------------------------------------
+# VM — shared CPU is fine for a prototype. Scale with `fly scale vm`.
+# ---------------------------------------------------------------------------
+[vm]
+  size   = "shared-cpu-1x"
+  memory = 1024
