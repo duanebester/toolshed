@@ -2,7 +2,7 @@ log_level: info
 
 behavior:
   read_only: false
-  autocommit: true
+  autocommit: false
 
 listener:
   host: 0.0.0.0

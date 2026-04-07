@@ -5,14 +5,21 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/toolshed/toolshed/internal/core"
 	"github.com/toolshed/toolshed/internal/embeddings"
 )
+
+// ErrDuplicateUpvote is returned when a key tries to upvote the same
+// invocation more than once (violates the UNIQUE constraint on
+// upvotes(key_fingerprint, invocation_id)).
+var ErrDuplicateUpvote = errors.New("dolt: duplicate upvote for this invocation")
 
 // Registry provides access to the shared Dolt registry and the local ledger.
 type Registry struct {
@@ -551,11 +558,30 @@ func (r *Registry) GetReputation(ctx context.Context, toolID string) (*core.Repu
 }
 
 // ---------------------------------------------------------------------------
+// Dolt commit helper
+// ---------------------------------------------------------------------------
+
+// doltCommit stages the given table and creates a Dolt commit on the specified
+// database connection, returning the commit hash. This makes the write visible
+// in the Dolt commit log and captures the hash for audit / tamper evidence.
+func (r *Registry) doltCommit(ctx context.Context, db *sql.DB, table, message string) (string, error) {
+	if _, err := db.ExecContext(ctx, "CALL DOLT_ADD(?)", table); err != nil {
+		return "", fmt.Errorf("dolt: add %q: %w", table, err)
+	}
+	var hash string
+	err := db.QueryRowContext(ctx, "SELECT DOLT_COMMIT('-m', ?)", message).Scan(&hash)
+	if err != nil {
+		return "", fmt.Errorf("dolt: commit %q: %w", message, err)
+	}
+	return hash, nil
+}
+
+// ---------------------------------------------------------------------------
 // Invocations (local ledger)
 // ---------------------------------------------------------------------------
 
 // WriteInvocation inserts an invocation record into the local ledger.
-func (r *Registry) WriteInvocation(ctx context.Context, inv core.InvocationRecord) error {
+func (r *Registry) WriteInvocation(ctx context.Context, inv core.InvocationRecord) (string, error) {
 	const stmt = `
 		INSERT INTO invocations
 			(id, tool_id, definition_hash, key_fingerprint,
@@ -574,9 +600,15 @@ func (r *Registry) WriteInvocation(ctx context.Context, inv core.InvocationRecor
 		inv.CreatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("dolt: write invocation %q: %w", inv.ID, err)
+		return "", fmt.Errorf("dolt: write invocation %q: %w", inv.ID, err)
 	}
-	return nil
+
+	commitMsg := fmt.Sprintf("invocation: %s for %s by %s", inv.ID, inv.ToolID, inv.KeyFingerprint)
+	hash, err := r.doltCommit(ctx, r.ledger, "invocations", commitMsg)
+	if err != nil {
+		return "", fmt.Errorf("dolt: commit invocation %q: %w", inv.ID, err)
+	}
+	return hash, nil
 }
 
 // GetInvocationByKeyAndTool looks up an invocation record for a given SSH
@@ -622,6 +654,110 @@ func (r *Registry) GetInvocationByKeyAndTool(ctx context.Context, keyFingerprint
 	return &inv, nil
 }
 
+// GetInvocationByID looks up an invocation record by its ID and verifies
+// that it belongs to the given SSH key fingerprint. Returns (nil, nil) if
+// not found or if the fingerprint doesn't match.
+func (r *Registry) GetInvocationByID(ctx context.Context, invocationID, keyFingerprint string) (*core.InvocationRecord, error) {
+	const query = `
+		SELECT id, tool_id, definition_hash, key_fingerprint,
+		       input_hash, output_hash, latency_ms, success, created_at
+		FROM invocations
+		WHERE id = ? AND key_fingerprint = ?`
+
+	var (
+		inv        core.InvocationRecord
+		inputHash  sql.NullString
+		outputHash sql.NullString
+	)
+
+	err := r.ledger.QueryRowContext(ctx, query, invocationID, keyFingerprint).Scan(
+		&inv.ID,
+		&inv.ToolID,
+		&inv.DefinitionHash,
+		&inv.KeyFingerprint,
+		&inputHash,
+		&outputHash,
+		&inv.LatencyMs,
+		&inv.Success,
+		&inv.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("dolt: get invocation %q for key %q: %w", invocationID, keyFingerprint, err)
+	}
+
+	inv.InputHash = inputHash.String
+	inv.OutputHash = outputHash.String
+
+	return &inv, nil
+}
+
+// GetInvocationLedgerCommit returns the Dolt commit hash from the ledger that
+// recorded a specific invocation. It queries dolt_log for the commit whose
+// message contains the invocation ID. Returns ("", nil) if not found.
+func (r *Registry) GetInvocationLedgerCommit(ctx context.Context, invocationID string) (string, error) {
+	const query = `
+		SELECT commit_hash
+		FROM dolt_log
+		WHERE message LIKE ?
+		ORDER BY date DESC
+		LIMIT 1`
+	pattern := fmt.Sprintf("%%invocation: %s%%", invocationID)
+
+	var hash string
+	err := r.ledger.QueryRowContext(ctx, query, pattern).Scan(&hash)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("dolt: get ledger commit for invocation %q: %w", invocationID, err)
+	}
+	return hash, nil
+}
+
+// AuditEntry represents a single Dolt commit from the registry audit log.
+type AuditEntry struct {
+	CommitHash string    `json:"commit_hash" yaml:"commit_hash"`
+	Message    string    `json:"message" yaml:"message"`
+	Committer  string    `json:"committer" yaml:"committer"`
+	Date       time.Time `json:"date" yaml:"date"`
+}
+
+// GetAuditLog returns Dolt commits from the registry whose messages mention
+// the given tool ID. This provides a verifiable history of all upvotes and
+// reputation changes for a tool — anyone can verify it by cloning the registry.
+func (r *Registry) GetAuditLog(ctx context.Context, toolID string, limit int) ([]AuditEntry, error) {
+	const query = `
+		SELECT commit_hash, committer, date, message
+		FROM dolt_log
+		WHERE message LIKE ?
+		ORDER BY date DESC
+		LIMIT ?`
+	pattern := fmt.Sprintf("%%%s%%", toolID)
+
+	rows, err := r.registry.QueryContext(ctx, query, pattern, limit)
+	if err != nil {
+		return nil, fmt.Errorf("dolt: get audit log for %q: %w", toolID, err)
+	}
+	defer rows.Close()
+
+	var entries []AuditEntry
+	for rows.Next() {
+		var e AuditEntry
+		if err := rows.Scan(&e.CommitHash, &e.Committer, &e.Date, &e.Message); err != nil {
+			return nil, fmt.Errorf("dolt: scan audit entry: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("dolt: audit log rows: %w", err)
+	}
+
+	return entries, nil
+}
+
 // ---------------------------------------------------------------------------
 // Upvotes
 // ---------------------------------------------------------------------------
@@ -649,8 +785,110 @@ func (r *Registry) WriteUpvote(ctx context.Context, upvote core.Upvote) error {
 		upvote.CreatedAt,
 	)
 	if err != nil {
+		// MySQL error 1062 = duplicate entry. The UNIQUE index on
+		// (key_fingerprint, invocation_id) fires when the same key
+		// tries to upvote the same invocation twice.
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 &&
+			strings.Contains(mysqlErr.Message, "idx_upvotes_key_invocation") {
+			return ErrDuplicateUpvote
+		}
 		return fmt.Errorf("dolt: write upvote %q: %w", upvote.ID, err)
 	}
+
+	commitMsg := fmt.Sprintf("upvote: %s rated %s %d/5", upvote.KeyFingerprint, upvote.ToolID, upvote.QualityScore)
+	if _, err := r.doltCommit(ctx, r.registry, "upvotes", commitMsg); err != nil {
+		return fmt.Errorf("dolt: commit upvote %q: %w", upvote.ID, err)
+	}
+	return nil
+}
+
+// CountUpvotesByKeyAndTool returns how many upvotes a specific key has cast
+// for a given tool. This is used for budget checks (rate-limiting upvotes
+// per key per tool).
+func (r *Registry) CountUpvotesByKeyAndTool(ctx context.Context, keyFingerprint, toolID string) (int, error) {
+	const q = `SELECT COUNT(*) FROM upvotes WHERE key_fingerprint = ? AND tool_id = ?`
+	var count int
+	if err := r.registry.QueryRowContext(ctx, q, keyFingerprint, toolID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("dolt: count upvotes for key %q tool %q: %w", keyFingerprint, toolID, err)
+	}
+	return count, nil
+}
+
+// RecomputeReputation recalculates the reputation row for a given tool by
+// aggregating from the upvotes table, then upserts the result and creates
+// an explicit Dolt commit.
+func (r *Registry) RecomputeReputation(ctx context.Context, toolID string) error {
+	const aggQuery = `
+		SELECT
+			COUNT(*) as total_upvotes,
+			COUNT(*) as verified_upvotes,
+			AVG(quality_score) as avg_quality,
+			COUNT(DISTINCT key_fingerprint) as unique_callers
+		FROM upvotes
+		WHERE tool_id = ?`
+
+	var (
+		totalUpvotes    int
+		verifiedUpvotes int
+		avgQuality      float64
+		uniqueCallers   int
+	)
+
+	err := r.registry.QueryRowContext(ctx, aggQuery, toolID).Scan(
+		&totalUpvotes,
+		&verifiedUpvotes,
+		&avgQuality,
+		&uniqueCallers,
+	)
+	if err != nil {
+		return fmt.Errorf("dolt: aggregate reputation for %q: %w", toolID, err)
+	}
+
+	// Count total invocation reports from local ledger for this tool.
+	var totalReports int
+	err = r.ledger.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM invocations WHERE tool_id = ?", toolID,
+	).Scan(&totalReports)
+	if err != nil {
+		return fmt.Errorf("dolt: count reports for %q: %w", toolID, err)
+	}
+
+	// Determine trend based on recent upvotes vs overall.
+	trend := "new"
+	if totalUpvotes > 0 {
+		trend = "stable"
+	}
+
+	now := time.Now().UTC()
+
+	const upsertStmt = `
+		INSERT INTO reputation
+			(tool_id, total_upvotes, verified_upvotes, avg_quality,
+			 unique_callers, total_reports, trend, computed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			total_upvotes = VALUES(total_upvotes),
+			verified_upvotes = VALUES(verified_upvotes),
+			avg_quality = VALUES(avg_quality),
+			unique_callers = VALUES(unique_callers),
+			total_reports = VALUES(total_reports),
+			trend = VALUES(trend),
+			computed_at = VALUES(computed_at)`
+
+	_, err = r.registry.ExecContext(ctx, upsertStmt,
+		toolID, totalUpvotes, verifiedUpvotes, avgQuality,
+		uniqueCallers, totalReports, trend, now,
+	)
+	if err != nil {
+		return fmt.Errorf("dolt: upsert reputation for %q: %w", toolID, err)
+	}
+
+	commitMsg := fmt.Sprintf("reputation: recomputed %s (avg %.1f, %d verified)", toolID, avgQuality, verifiedUpvotes)
+	if _, err := r.doltCommit(ctx, r.registry, "reputation", commitMsg); err != nil {
+		return fmt.Errorf("dolt: commit reputation for %q: %w", toolID, err)
+	}
+
 	return nil
 }
 

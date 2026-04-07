@@ -672,7 +672,7 @@ func TestWriteInvocation(t *testing.T) {
 		CreatedAt:      time.Now().UTC().Truncate(time.Second),
 	}
 
-	if err := reg.WriteInvocation(ctx, inv); err != nil {
+	if _, err := reg.WriteInvocation(ctx, inv); err != nil {
 		t.Fatalf("WriteInvocation: %v", err)
 	}
 
@@ -732,7 +732,7 @@ func TestGetInvocationByKeyAndTool(t *testing.T) {
 		CreatedAt:      time.Now().UTC().Truncate(time.Second),
 	}
 
-	if err := reg.WriteInvocation(ctx, inv); err != nil {
+	if _, err := reg.WriteInvocation(ctx, inv); err != nil {
 		t.Fatalf("WriteInvocation: %v", err)
 	}
 

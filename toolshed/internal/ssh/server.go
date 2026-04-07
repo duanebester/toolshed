@@ -11,9 +11,11 @@ package ssh
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/ssh"
@@ -28,12 +30,13 @@ import (
 // Server wraps a wish SSH server with ToolShed command handling and
 // production-grade connection hardening (rate limiting, auto-ban, timeouts).
 type Server struct {
-	registry *dolt.Registry
-	embedder embeddings.Embedder // nil = semantic search disabled
-	srv      *ssh.Server
-	port     int
-	limiter  *ConnLimiter
-	cfg      HardenConfig
+	registry   *dolt.Registry
+	embedder   embeddings.Embedder // nil = semantic search disabled
+	srv        *ssh.Server
+	port       int
+	limiter    *ConnLimiter
+	cmdLimiter *CommandRateLimiter // per-fingerprint command rate limiting
+	cfg        HardenConfig
 }
 
 // NewServer creates a new ToolShed SSH server with connection hardening.
@@ -48,13 +51,15 @@ func NewServer(registry *dolt.Registry, embedder embeddings.Embedder, hostKeyPat
 	}
 
 	limiter := NewConnLimiter(hardenCfg)
+	cmdLimiter := NewCommandRateLimiter(DefaultCommandLimitConfig())
 
 	s := &Server{
-		registry: registry,
-		embedder: embedder,
-		port:     port,
-		limiter:  limiter,
-		cfg:      hardenCfg,
+		registry:   registry,
+		embedder:   embedder,
+		port:       port,
+		limiter:    limiter,
+		cmdLimiter: cmdLimiter,
+		cfg:        hardenCfg,
 	}
 
 	addr := fmt.Sprintf(":%d", port)
@@ -78,6 +83,31 @@ func NewServer(registry *dolt.Registry, embedder embeddings.Embedder, hostKeyPat
 		wish.WithPublicKeyAuth(func(ctx ssh.Context, key ssh.PublicKey) bool {
 			fingerprint := gossh.FingerprintSHA256(key)
 			keyType := key.Type()
+
+			// Reject weak key types — DSA is broken and short RSA keys
+			// are trivially factorable. This costs nothing and blocks a
+			// class of impersonation attacks.
+			if keyType == "ssh-dss" {
+				log.Printf("ssh/hardening: rejected DSA key from %s", ctx.RemoteAddr())
+				return false
+			}
+			if keyType == "ssh-rsa" {
+				// Parse the RSA public key to check its bit length.
+				// Keys under 2048 bits are considered insecure.
+				parsed, err := gossh.ParsePublicKey(key.Marshal())
+				if err == nil {
+					if rsaKey, ok := parsed.(gossh.CryptoPublicKey); ok {
+						if pub, ok := rsaKey.CryptoPublicKey().(*rsa.PublicKey); ok {
+							if pub.N.BitLen() < 2048 {
+								log.Printf("ssh/hardening: rejected weak RSA key (%d bits) from %s",
+									pub.N.BitLen(), ctx.RemoteAddr())
+								return false
+							}
+						}
+					}
+				}
+			}
+
 			pubKeyStr := gossh.MarshalAuthorizedKey(key)
 
 			_, err := registry.GetOrCreateAccount(
@@ -133,9 +163,39 @@ func NewServer(registry *dolt.Registry, embedder embeddings.Embedder, hostKeyPat
 	// Without this, a single TCP connection can try thousands of keys
 	// or passwords. The default of 3 is standard for hardened sshd.
 	srv.ServerConfigCallback = func(ctx ssh.Context) *gossh.ServerConfig {
-		return &gossh.ServerConfig{
+		cfg := &gossh.ServerConfig{
 			MaxAuthTries: hardenCfg.MaxAuthTries,
 		}
+		// Only allow strong, modern ciphers. This drops legacy options
+		// like arcfour, 3des-cbc, and aes*-cbc that Go's crypto/ssh
+		// would otherwise negotiate.
+		cfg.Ciphers = []string{
+			"chacha20-poly1305@openssh.com",
+			"aes256-gcm@openssh.com",
+			"aes128-gcm@openssh.com",
+			"aes256-ctr",
+			"aes192-ctr",
+			"aes128-ctr",
+		}
+		// Only allow modern key exchanges. Drops diffie-hellman-group14-sha1
+		// and diffie-hellman-group1-sha1 which use SHA-1.
+		cfg.KeyExchanges = []string{
+			"curve25519-sha256",
+			"curve25519-sha256@libssh.org",
+			"ecdh-sha2-nistp256",
+			"ecdh-sha2-nistp384",
+			"ecdh-sha2-nistp521",
+			"diffie-hellman-group14-sha256",
+		}
+		// Only allow strong MACs (ETM variants preferred).
+		// Drops hmac-sha1 and hmac-sha1-96.
+		cfg.MACs = []string{
+			"hmac-sha2-256-etm@openssh.com",
+			"hmac-sha2-512-etm@openssh.com",
+			"hmac-sha2-256",
+			"hmac-sha2-512",
+		}
+		return cfg
 	}
 
 	// ── Server version string ───────────────────────────────────────────
@@ -168,9 +228,13 @@ func (s *Server) Start() error {
 	//   [services.proxy_proto_options]
 	//     version = "v2"
 	if s.cfg.ProxyProtocol {
+		// ReadHeaderTimeout is deliberately short (10s) rather than
+		// using the session IdleTimeout (5m). A legitimate Fly.io proxy
+		// sends the PROXY header immediately. A long timeout here would
+		// let attackers hold TCP slots without completing the handshake.
 		ln = &proxyproto.Listener{
 			Listener:          ln,
-			ReadHeaderTimeout: s.cfg.IdleTimeout,
+			ReadHeaderTimeout: 10 * time.Second,
 		}
 		log.Println("ssh: PROXY protocol enabled — real client IPs will be visible")
 	} else {
@@ -204,8 +268,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Stop accepting new connections and drain active sessions.
 	err := s.srv.Shutdown(ctx)
 
-	// Stop the rate limiter's background cleanup goroutine.
+	// Stop the rate limiters' background cleanup goroutines.
 	s.limiter.Close()
+	s.cmdLimiter.Close()
 
 	// Log final stats.
 	stats := s.limiter.Stats()
@@ -241,6 +306,7 @@ func (s *Server) handleSession(sess ssh.Session) {
 		registry:    s.registry,
 		embedder:    s.embedder,
 		fingerprint: fingerprint,
+		cmdLimiter:  s.cmdLimiter,
 	}
 
 	dispatcher.Dispatch(sess, cmd)

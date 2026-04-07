@@ -16,6 +16,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -32,11 +33,16 @@ import (
 	"github.com/toolshed/toolshed/internal/embeddings"
 )
 
+// maxUpvotesPerTool is the maximum number of upvotes a single key can cast
+// for a given tool. Each upvote must reference a distinct invocation.
+const maxUpvotesPerTool = 5
+
 // CommandDispatcher routes SSH commands to their handlers.
 type CommandDispatcher struct {
 	registry    *dolt.Registry
 	embedder    embeddings.Embedder // nil = semantic search disabled
 	fingerprint string              // SSH key fingerprint of the connected user
+	cmdLimiter  *CommandRateLimiter // per-fingerprint command rate limiting (shared across sessions)
 }
 
 // Dispatch parses the command name from the first argument and delegates
@@ -65,11 +71,15 @@ func (d *CommandDispatcher) Dispatch(sess ssh.Session, cmd []string) {
 		d.handleVerify(sess, args)
 	case "crawl":
 		d.handleCrawl(sess, args)
+	case "audit":
+		d.handleAudit(sess, args)
+	case "reputation":
+		d.handleReputation(sess, args)
 	case "help":
 		d.handleHelp(sess, args)
 	default:
 		fmt.Fprintf(sess.Stderr(), "error: unknown command %q\n", name)
-		fmt.Fprintf(sess.Stderr(), "available commands: search, info, register, report, upvote, verify, crawl, help\n")
+		fmt.Fprintf(sess.Stderr(), "available commands: search, info, register, report, upvote, verify, crawl, audit, reputation, help\n")
 	}
 }
 
@@ -150,6 +160,23 @@ func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
 				Description: "Index tools from a domain's .well-known/toolshed.yaml",
 				Examples: []string{
 					"ssh toolshed.sh crawl acme.com",
+				},
+			},
+			{
+				Name:        "audit",
+				Usage:       "audit <tool_id> [--limit <n>]",
+				Description: "View the verifiable Dolt commit history for a tool",
+				Examples: []string{
+					"ssh toolshed.sh audit acme.com/fraud-detection",
+					"ssh toolshed.sh audit acme.com/fraud-detection --limit 50",
+				},
+			},
+			{
+				Name:        "reputation",
+				Usage:       "reputation <tool_id>",
+				Description: "View the computed reputation score for a tool",
+				Examples: []string{
+					"ssh toolshed.sh reputation acme.com/fraud-detection",
 				},
 			},
 			{
@@ -569,10 +596,19 @@ type reportResponse struct {
 	ToolID         string `json:"tool_id" yaml:"tool_id"`
 	DefinitionHash string `json:"definition_hash" yaml:"definition_hash"`
 	Success        bool   `json:"success" yaml:"success"`
+	LedgerCommit   string `json:"ledger_commit" yaml:"ledger_commit"`
 	RecordedAt     string `json:"recorded_at" yaml:"recorded_at"`
 }
 
 func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
+	// ── Rate limit ──────────────────────────────────────────────────────
+	// Prevent invocation flooding — a key can only submit N reports per
+	// window. This closes the "spam reports to generate upvote slots" hole.
+	if d.cmdLimiter != nil && !d.cmdLimiter.Allow(d.fingerprint, "report") {
+		fmt.Fprintf(sess.Stderr(), "error: rate limit exceeded — too many reports, try again shortly\n")
+		return
+	}
+
 	ctx := sess.Context()
 
 	// Parse flags using a custom FlagSet so we don't pollute the global flags.
@@ -637,7 +673,8 @@ func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
 		CreatedAt:      now,
 	}
 
-	if err := d.registry.WriteInvocation(ctx, inv); err != nil {
+	ledgerCommit, err := d.registry.WriteInvocation(ctx, inv)
+	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to write invocation report: %v\n", err)
 		log.Printf("ssh: report write failed for %s by %s: %v", *toolID, d.fingerprint, err)
 		return
@@ -651,6 +688,7 @@ func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
 		ToolID:         *toolID,
 		DefinitionHash: definitionHash,
 		Success:        wasSuccess,
+		LedgerCommit:   ledgerCommit,
 		RecordedAt:     now.Format(time.RFC3339),
 	}
 
@@ -680,8 +718,16 @@ type upvoteResponse struct {
 func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 	ctx := sess.Context()
 
+	// ── Rate limit ──────────────────────────────────────────────────────
+	// Prevent upvote flooding at the command level (complements the
+	// per-tool budget check below).
+	if d.cmdLimiter != nil && !d.cmdLimiter.Allow(d.fingerprint, "upvote") {
+		fmt.Fprintf(sess.Stderr(), "error: rate limit exceeded — too many upvotes, try again shortly\n")
+		return
+	}
+
 	if len(args) == 0 {
-		fmt.Fprintf(sess.Stderr(), "usage: upvote <tool_id> --quality <1-5> [--useful] [--comment \"text\"]\n")
+		fmt.Fprintf(sess.Stderr(), "usage: upvote <tool_id> --quality <1-5> [--useful] [--invocation <id>] [--comment \"text\"]\n")
 		return
 	}
 
@@ -694,6 +740,7 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 
 	quality := fs.Int("quality", 0, "quality score 1-5 (required)")
 	useful := fs.Bool("useful", false, "mark as useful")
+	invocationID := fs.String("invocation", "", "specific invocation ID to upvote (default: latest)")
 	comment := fs.String("comment", "", "optional comment")
 
 	if err := fs.Parse(flagArgs); err != nil {
@@ -705,18 +752,68 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 		return
 	}
 
-	// Verify that the user has actually called this tool — you can't upvote
-	// something you haven't used.
-	inv, err := d.registry.GetInvocationByKeyAndTool(ctx, d.fingerprint, toolID)
+	// ── Self-upvote check ───────────────────────────────────────────────
+	// A provider cannot upvote their own tool. Compare the upvoter's
+	// fingerprint with the tool listing's provider_account.
+	listing, err := d.registry.GetToolListing(ctx, toolID)
 	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to check invocation history: %v\n", err)
-		log.Printf("ssh: upvote invocation check failed for %s/%s: %v", d.fingerprint, toolID, err)
+		fmt.Fprintf(sess.Stderr(), "error: failed to look up tool: %v\n", err)
 		return
 	}
-	if inv == nil {
-		fmt.Fprintf(sess.Stderr(), "error: you must report a call before upvoting\n")
-		fmt.Fprintf(sess.Stderr(), "hint: use 'report --tool %s --success' to submit an invocation report first\n", toolID)
+	if listing == nil {
+		fmt.Fprintf(sess.Stderr(), "error: tool %q not found\n", toolID)
 		return
+	}
+	if listing.ProviderAccount == d.fingerprint {
+		fmt.Fprintf(sess.Stderr(), "error: you cannot upvote your own tool\n")
+		return
+	}
+
+	// ── Budget check ────────────────────────────────────────────────────
+	// Each key can cast at most maxUpvotesPerTool upvotes for a given tool.
+	// Each must reference a distinct invocation (enforced by the UNIQUE
+	// index on upvotes(key_fingerprint, invocation_id) at the DB level).
+	existing, err := d.registry.CountUpvotesByKeyAndTool(ctx, d.fingerprint, toolID)
+	if err != nil {
+		fmt.Fprintf(sess.Stderr(), "error: failed to check upvote budget: %v\n", err)
+		log.Printf("ssh: upvote budget check failed for %s/%s: %v", d.fingerprint, toolID, err)
+		return
+	}
+	if existing >= maxUpvotesPerTool {
+		fmt.Fprintf(sess.Stderr(), "error: you have already used all %d upvotes for this tool\n", maxUpvotesPerTool)
+		fmt.Fprintf(sess.Stderr(), "hint: each key can upvote a tool up to %d times (once per invocation)\n", maxUpvotesPerTool)
+		return
+	}
+
+	// Look up the invocation — either a specific one or the most recent.
+	var inv *core.InvocationRecord
+	if *invocationID != "" {
+		inv, err = d.registry.GetInvocationByID(ctx, *invocationID, d.fingerprint)
+		if err != nil {
+			fmt.Fprintf(sess.Stderr(), "error: failed to look up invocation: %v\n", err)
+			log.Printf("ssh: upvote invocation lookup failed for %s: %v", *invocationID, err)
+			return
+		}
+		if inv == nil {
+			fmt.Fprintf(sess.Stderr(), "error: invocation %q not found (or doesn't belong to your key)\n", *invocationID)
+			return
+		}
+		if inv.ToolID != toolID {
+			fmt.Fprintf(sess.Stderr(), "error: invocation %q is for tool %q, not %q\n", *invocationID, inv.ToolID, toolID)
+			return
+		}
+	} else {
+		inv, err = d.registry.GetInvocationByKeyAndTool(ctx, d.fingerprint, toolID)
+		if err != nil {
+			fmt.Fprintf(sess.Stderr(), "error: failed to check invocation history: %v\n", err)
+			log.Printf("ssh: upvote invocation check failed for %s/%s: %v", d.fingerprint, toolID, err)
+			return
+		}
+		if inv == nil {
+			fmt.Fprintf(sess.Stderr(), "error: you must report a call before upvoting\n")
+			fmt.Fprintf(sess.Stderr(), "hint: use 'report --tool %s --success' to submit an invocation report first\n", toolID)
+			return
+		}
 	}
 
 	now := time.Now().UTC()
@@ -728,12 +825,20 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 	sum := sha256.Sum256([]byte(invHashInput))
 	invHash := fmt.Sprintf("sha256:%x", sum)
 
+	// Look up the ledger commit hash for the invocation record.
+	ledgerCommit, err := d.registry.GetInvocationLedgerCommit(ctx, inv.ID)
+	if err != nil {
+		log.Printf("ssh: warning: could not look up ledger commit for invocation %s: %v", inv.ID, err)
+		// Non-fatal: proceed with empty ledger commit rather than blocking the upvote.
+	}
+
 	upvote := core.Upvote{
 		ID:             upvoteID,
 		ToolID:         toolID,
 		KeyFingerprint: d.fingerprint,
 		InvocationID:   inv.ID,
 		InvocationHash: invHash,
+		LedgerCommit:   ledgerCommit,
 		QualityScore:   *quality,
 		Useful:         *useful,
 		Comment:        *comment,
@@ -741,9 +846,20 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 	}
 
 	if err := d.registry.WriteUpvote(ctx, upvote); err != nil {
+		if errors.Is(err, dolt.ErrDuplicateUpvote) {
+			fmt.Fprintf(sess.Stderr(), "error: you have already upvoted this invocation\n")
+			fmt.Fprintf(sess.Stderr(), "hint: use a different --invocation ID, or omit it to use your latest call\n")
+			return
+		}
 		fmt.Fprintf(sess.Stderr(), "error: failed to write upvote: %v\n", err)
 		log.Printf("ssh: upvote write failed for %s by %s: %v", toolID, d.fingerprint, err)
 		return
+	}
+
+	// Recompute reputation for the tool after recording the upvote.
+	if err := d.registry.RecomputeReputation(ctx, toolID); err != nil {
+		// Non-fatal: log the error but don't fail the upvote.
+		log.Printf("ssh: reputation recompute failed for %s: %v", toolID, err)
 	}
 
 	log.Printf("ssh: upvote %s for %s by %s (quality=%d)", upvoteID, toolID, d.fingerprint, *quality)
@@ -754,6 +870,119 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 		InvocationID: inv.ID,
 		Quality:      *quality,
 		RecordedAt:   now.Format(time.RFC3339),
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
+		return
+	}
+
+	sess.Write(data)
+	sess.Write([]byte("\n"))
+}
+
+// ---------------------------------------------------------------------------
+// audit <tool_id> [--limit <n>]
+// ---------------------------------------------------------------------------
+
+// auditResponse is returned by the audit command.
+type auditResponse struct {
+	ToolID  string            `json:"tool_id" yaml:"tool_id"`
+	Entries []dolt.AuditEntry `json:"entries" yaml:"entries"`
+	Total   int               `json:"total" yaml:"total"`
+}
+
+func (d *CommandDispatcher) handleAudit(sess ssh.Session, args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(sess.Stderr(), "usage: audit <tool_id> [--limit <n>]\n")
+		fmt.Fprintf(sess.Stderr(), "example: ssh toolshed.sh audit acme.com/fraud-detection\n")
+		return
+	}
+
+	toolID := args[0]
+	flagArgs := args[1:]
+
+	fs := flag.NewFlagSet("audit", flag.ContinueOnError)
+	fs.SetOutput(sess.Stderr())
+
+	limit := fs.Int("limit", 20, "max number of entries to return")
+
+	if err := fs.Parse(flagArgs); err != nil {
+		return
+	}
+
+	ctx := sess.Context()
+	entries, err := d.registry.GetAuditLog(ctx, toolID, *limit)
+	if err != nil {
+		fmt.Fprintf(sess.Stderr(), "error: failed to query audit log: %v\n", err)
+		log.Printf("ssh: audit query failed for %s: %v", toolID, err)
+		return
+	}
+
+	resp := auditResponse{
+		ToolID:  toolID,
+		Entries: entries,
+		Total:   len(entries),
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
+		return
+	}
+
+	sess.Write(data)
+	sess.Write([]byte("\n"))
+}
+
+// ---------------------------------------------------------------------------
+// reputation <tool_id>
+// ---------------------------------------------------------------------------
+
+// reputationResponse wraps the reputation data for a tool.
+type reputationResponse struct {
+	ToolID          string  `json:"tool_id" yaml:"tool_id"`
+	TotalUpvotes    int     `json:"total_upvotes" yaml:"total_upvotes"`
+	VerifiedUpvotes int     `json:"verified_upvotes" yaml:"verified_upvotes"`
+	AvgQuality      float64 `json:"avg_quality" yaml:"avg_quality"`
+	UniqueCallers   int     `json:"unique_callers" yaml:"unique_callers"`
+	TotalReports    int     `json:"total_reports" yaml:"total_reports"`
+	Trend           string  `json:"trend,omitempty" yaml:"trend,omitempty"`
+	ComputedAt      string  `json:"computed_at" yaml:"computed_at"`
+}
+
+func (d *CommandDispatcher) handleReputation(sess ssh.Session, args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(sess.Stderr(), "usage: reputation <tool_id>\n")
+		fmt.Fprintf(sess.Stderr(), "example: ssh toolshed.sh reputation acme.com/fraud-detection\n")
+		return
+	}
+
+	toolID := args[0]
+	ctx := sess.Context()
+
+	rep, err := d.registry.GetReputation(ctx, toolID)
+	if err != nil {
+		fmt.Fprintf(sess.Stderr(), "error: failed to look up reputation: %v\n", err)
+		log.Printf("ssh: reputation query failed for %s: %v", toolID, err)
+		return
+	}
+	if rep == nil {
+		fmt.Fprintf(sess.Stderr(), "error: no reputation data for %q\n", toolID)
+		fmt.Fprintf(sess.Stderr(), "hint: reputation is computed after a tool receives its first upvote\n")
+		return
+	}
+
+	resp := reputationResponse{
+		ToolID:          rep.ToolID,
+		TotalUpvotes:    rep.TotalUpvotes,
+		VerifiedUpvotes: rep.VerifiedUpvotes,
+		AvgQuality:      rep.AvgQuality,
+		UniqueCallers:   rep.UniqueCallers,
+		TotalReports:    rep.TotalReports,
+		Trend:           rep.Trend,
+		ComputedAt:      rep.ComputedAt.Format(time.RFC3339),
 	}
 
 	data, err := json.Marshal(resp)
