@@ -12,6 +12,18 @@
 //	TOOLSHED_LEDGER_DSN     - Dolt ledger DSN (default "root@tcp(localhost:3306)/toolshed_ledger?parseTime=true")
 //	TOOLSHED_MODEL_DIR      - path to ONNX model directory containing model.onnx + tokenizer.json (enables semantic search)
 //	TOOLSHED_ONNX_LIB       - path to ONNX Runtime shared library (auto-detected if not set)
+//
+// Hardening (all optional — sensible defaults are applied):
+//
+//	TOOLSHED_PROXY_PROTOCOL - enable PROXY protocol for real client IPs on Fly.io (default "false")
+//	TOOLSHED_RATE_PER_IP    - max new connections per IP per minute (default "20")
+//	TOOLSHED_MAX_PER_IP     - max concurrent connections per IP (default "10")
+//	TOOLSHED_MAX_TOTAL      - max total concurrent connections (default "200")
+//	TOOLSHED_BAN_AFTER      - ban IP after N rate-limit violations (default "5")
+//	TOOLSHED_BAN_DURATION   - ban duration e.g. "15m" (default "15m")
+//	TOOLSHED_MAX_SESSION    - max session duration e.g. "30m" (default "30m")
+//	TOOLSHED_IDLE_TIMEOUT   - idle timeout e.g. "5m" (default "5m")
+//	TOOLSHED_MAX_AUTH_TRIES - max auth attempts per connection (default "3")
 package main
 
 import (
@@ -24,6 +36,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -48,6 +61,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("invalid TOOLSHED_SSH_PORT %q: %v", portStr, err)
 	}
+
+	// ── Hardening config ────────────────────────────────────────────────
+	hardenCfg := sshserver.DefaultHardenConfig()
+	hardenCfg.ProxyProtocol = envBool("TOOLSHED_PROXY_PROTOCOL", hardenCfg.ProxyProtocol)
+	hardenCfg.PerIPRate = envInt("TOOLSHED_RATE_PER_IP", hardenCfg.PerIPRate)
+	hardenCfg.MaxPerIP = envInt("TOOLSHED_MAX_PER_IP", hardenCfg.MaxPerIP)
+	hardenCfg.MaxTotal = envInt("TOOLSHED_MAX_TOTAL", hardenCfg.MaxTotal)
+	hardenCfg.BanAfter = envInt("TOOLSHED_BAN_AFTER", hardenCfg.BanAfter)
+	hardenCfg.BanDuration = envDuration("TOOLSHED_BAN_DURATION", hardenCfg.BanDuration)
+	hardenCfg.MaxSessionTime = envDuration("TOOLSHED_MAX_SESSION", hardenCfg.MaxSessionTime)
+	hardenCfg.IdleTimeout = envDuration("TOOLSHED_IDLE_TIMEOUT", hardenCfg.IdleTimeout)
+	hardenCfg.MaxAuthTries = envInt("TOOLSHED_MAX_AUTH_TRIES", hardenCfg.MaxAuthTries)
 
 	log.Println("toolshed-ssh starting")
 	log.Printf("  port:     %d", port)
@@ -88,8 +113,8 @@ func main() {
 		backfillEmbeddings(registry, embedder)
 	}
 
-	// Create the SSH server.
-	srv, err := sshserver.NewServer(registry, embedder, hostKeyPath, port)
+	// Create the SSH server with hardening.
+	srv, err := sshserver.NewServer(registry, embedder, hostKeyPath, port, hardenCfg)
 	if err != nil {
 		log.Fatalf("failed to create SSH server: %v", err)
 	}
@@ -210,4 +235,47 @@ func envOr(key, fallback string) string {
 	}
 	fmt.Printf("  env %s not set, using default: %s\n", key, fallback)
 	return fallback
+}
+
+// envInt reads an integer from the environment, falling back to fallback.
+func envInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		log.Printf("warning: invalid %s=%q, using default %d", key, v, fallback)
+		return fallback
+	}
+	return n
+}
+
+// envDuration reads a time.Duration from the environment, falling back to fallback.
+func envDuration(key string, fallback time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		log.Printf("warning: invalid %s=%q, using default %v", key, v, fallback)
+		return fallback
+	}
+	return d
+}
+
+// envBool reads a boolean from the environment, falling back to fallback.
+// Truthy values: "true", "1", "yes". Everything else is false.
+func envBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	switch strings.ToLower(v) {
+	case "true", "1", "yes":
+		return true
+	default:
+		return false
+	}
 }

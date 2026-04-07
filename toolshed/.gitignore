@@ -1,0 +1,23 @@
+# Build artifacts
+ssh
+*.exe
+*.test
+*.out
+
+# SSH host keys — private keys must never be committed.
+# The server auto-generates these on first run.
+.ssh/
+
+# Go
+vendor/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

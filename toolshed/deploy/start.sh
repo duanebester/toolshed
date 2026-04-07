@@ -92,6 +92,24 @@ export TOOLSHED_WEB_ROOT="/public"
 export TOOLSHED_MODEL_DIR="${TOOLSHED_MODEL_DIR:-/model}"
 export TOOLSHED_ONNX_LIB="${TOOLSHED_ONNX_LIB:-/usr/local/lib/libonnxruntime.so}"
 
+# ---------------------------------------------------------------------------
+# SSH hardening — real client IPs + rate limiting + timeouts
+#
+# PROXY protocol is required on Fly.io so the Go server sees real client IPs
+# instead of Fly's internal proxy addresses. The fly.toml must also have:
+#   [services.proxy_proto_options]
+#     version = "v2"
+# ---------------------------------------------------------------------------
+export TOOLSHED_PROXY_PROTOCOL="${TOOLSHED_PROXY_PROTOCOL:-true}"
+export TOOLSHED_RATE_PER_IP="${TOOLSHED_RATE_PER_IP:-20}"       # max new conns per IP per minute
+export TOOLSHED_MAX_PER_IP="${TOOLSHED_MAX_PER_IP:-10}"         # max concurrent conns per IP
+export TOOLSHED_MAX_TOTAL="${TOOLSHED_MAX_TOTAL:-200}"          # max total concurrent conns
+export TOOLSHED_BAN_AFTER="${TOOLSHED_BAN_AFTER:-5}"            # ban after N violations
+export TOOLSHED_BAN_DURATION="${TOOLSHED_BAN_DURATION:-15m}"    # ban duration
+export TOOLSHED_MAX_SESSION="${TOOLSHED_MAX_SESSION:-30m}"      # max session lifetime
+export TOOLSHED_IDLE_TIMEOUT="${TOOLSHED_IDLE_TIMEOUT:-5m}"     # idle timeout
+export TOOLSHED_MAX_AUTH_TRIES="${TOOLSHED_MAX_AUTH_TRIES:-3}"  # max auth attempts per conn
+
 mkdir -p /data/ssh
 
 # ---------------------------------------------------------------------------

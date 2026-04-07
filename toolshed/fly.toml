@@ -68,10 +68,23 @@ primary_region = "iad"
 # ---------------------------------------------------------------------------
 # SSH server — raw TCP on port 22. Requires a dedicated IPv4 address.
 # Allocate with: fly ips allocate-v4
+#
+# PROXY protocol v2 is enabled so the app sees real client IPs instead of
+# Fly's internal proxy addresses. Without this, per-IP rate limiting in the
+# Go server is ineffective (all connections appear to come from the same IP).
+# The app must parse the PROXY header — set TOOLSHED_PROXY_PROTOCOL=true.
 # ---------------------------------------------------------------------------
 [[services]]
   internal_port = 2222
   protocol      = "tcp"
+
+  [services.concurrency]
+    type       = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+  [services.proxy_proto_options]
+    version = "v2"
 
   [[services.ports]]
     port = 22

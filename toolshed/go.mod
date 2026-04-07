@@ -10,6 +10,7 @@ require (
 	github.com/daulet/tokenizers v1.27.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
+	github.com/pires/go-proxyproto v0.11.0
 	github.com/yalue/onnxruntime_go v1.27.0
 	golang.org/x/crypto v0.49.0
 	gopkg.in/yaml.v3 v3.0.1
