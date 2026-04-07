@@ -65,8 +65,8 @@ ssh toolshed.sh search "fraud detection"
 # Get tool details
 ssh toolshed.sh info acme.com/fraud-detection
 
-# Register tools
-ssh toolshed.sh register < toolshed.yaml
+# Crawl a domain's tools
+ssh toolshed.sh crawl acme.com
 
 # Report a tool call (for reputation)
 ssh toolshed.sh report --tool acme.com/fraud-detection \
@@ -118,10 +118,7 @@ tools:
 
 ~25 lines for a complete tool registration. An agent can read it. A human can write it. The registry computes the content hash server-side.
 
-Two ways to get tools into the index:
-
-1. **Push** — `ssh toolshed.sh register < toolshed.yaml` or `POST /api/register`
-2. **Pull** — `ssh toolshed.sh crawl acme.com` fetches `https://acme.com/.well-known/toolshed.yaml`
+Providers host `/.well-known/toolshed.yaml` on their domain, then trigger indexing: `ssh toolshed.sh crawl acme.com` (or anyone can trigger it — the registry fetches and verifies the YAML from the domain directly).
 
 ### For MCP Users: An MCP Server (Still Works)
 
@@ -146,7 +143,6 @@ The ToolShed exposes a small set of meta-tools (via SSH, HTTP, or MCP):
 
 - **`search`** — find tools by capability, price, reputation
 - **`info`** — get full details on a specific tool
-- **`register`** — publish a tool record to the registry
 - **`crawl`** — index tools from a domain's `/.well-known/toolshed.yaml`
 - **`report`** — submit an invocation report (for reputation)
 - **`upvote`** — submit a quality review (linked to a report)
@@ -246,7 +242,7 @@ ssh toolshed.sh verify acme.com
 # Or: Place this at https://acme.com/.well-known/toolshed-verify.txt
 ```
 
-Once verified, your key is bound to that domain. Tools you register are attributed to `acme.com`. Your upvotes carry the weight of a domain-verified identity.
+Once verified, your key is bound to that domain. Tools you crawl are attributed to `acme.com`. Your upvotes carry the weight of a domain-verified identity.
 
 ### Why SSH Works for Agents
 
@@ -264,7 +260,7 @@ Every entity in the system is a **record** — a structured document with a sche
 
 ### The Tool Record (YAML)
 
-A company registers a tool by publishing a `toolshed.yaml` file or pushing one via SSH. The registry splits it into two parts: an immutable **definition** (the contract) and a mutable **listing** (the metadata).
+A company publishes a `toolshed.yaml` file on their domain. The registry crawls it and splits it into two parts: an immutable **definition** (the contract) and a mutable **listing** (the metadata).
 
 The registry hashes the definition's schema, invocation, capabilities, and provider domain to produce a `content_hash` — the tool's true identity (inspired by Unison's content-addressed definitions). Names, pricing, and descriptions are mutable metadata on the listing that point to the hash.
 
@@ -561,9 +557,9 @@ The audit trail. Every invocation report gets a Dolt commit with the record (has
 │  │                     │  │                          │  │
 │  │  • Browse tools     │  │  search "query"          │  │
 │  │  • Search + filter  │  │  info domain/tool        │  │
-│  │  • Register tools   │  │  register < file.yaml    │  │
-│  │  • View reputation  │  │  crawl domain.com        │  │
-│  │  • Verify domain    │  │  report --tool ...       │  │
+│  │  • Crawl domains    │  │  crawl domain.com        │  │
+│  │  • View reputation  │  │  report --tool ...       │  │
+│  │  • Verify domain    │  │  verify domain.com       │  │
 │  │  • Upvote tools     │  │  upvote domain/tool ...  │  │
 │  └──────────┬──────────┘  └───────────┬──────────────┘  │
 │             │                         │                 │
@@ -664,7 +660,7 @@ Provider's domain (acme.com)
 
 The transition is smooth:
 
-1. **Today**: providers push records via `ssh -p 2222 localhost register < toolshed.yaml`, or the registry crawls their domain with `ssh -p 2222 localhost crawl acme.com`
+1. **Today**: the registry crawls provider domains with `ssh -p 2222 localhost crawl acme.com`
 2. **Soon**: providers host `/.well-known/toolshed.yaml` AND the registry indexes them automatically
 3. **Eventually**: the registry is purely an index — the provider's domain is the source of truth
 
@@ -678,9 +674,9 @@ When the crawler (`internal/crawl/`) fetches a provider's `toolshed.yaml`, it:
 2. Parses the YAML through the standard `core.ParseProviderFileFromBytes` pipeline
 3. **Security check**: verifies `provider.domain` in the YAML matches the domain being crawled (prevents `evil.com` from claiming to be `acme.com`)
 4. Re-computes the content hash from the immutable fields via `core.ContentHash`
-5. Indexes valid records into Dolt with `source: "crawl"` (vs `"push"` for SSH/API registration)
+5. Indexes valid records into Dolt with `source: "crawl"`
 
-The hash is **derived, not declared by the provider**. This prevents tampering and ensures consistency. The same tool produces the same content hash whether it was registered via `register` (push) or `crawl` (pull).
+The hash is **derived, not declared by the provider**. This prevents tampering and ensures consistency across crawls.
 
 The crawl command is available via both SSH and HTTP:
 
@@ -786,28 +782,28 @@ Or more concisely: **npm + SSH + Dolt, for AI agent tool calls, with AT Protocol
 
 ## Implementation Status
 
-The core prototype loop is complete. An agent can SSH in, search, discover tools, register new ones, crawl provider domains, report calls, and upvote. All v2 fundamentals work: SSH identity, YAML spec, content hashing, decoupled payments (including MPP), Dolt backbone, two-DB split. Fly.io deployment is ready (Dockerfile + fly.toml + startup script).
+The core prototype loop is complete. An agent can SSH in, search, discover tools, crawl provider domains, report calls, and upvote. All v2 fundamentals work: SSH identity, YAML spec, content hashing, decoupled payments (including MPP), Dolt backbone, two-DB split. Fly.io deployment is ready (Dockerfile + fly.toml + startup script).
 
 ### ✅ Built (prototype-complete)
 
-| Feature                                                                   | Location                                                                                   |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| SSH-first interface (wish)                                                | `cmd/ssh/`, `internal/ssh/`                                                                |
-| YAML spec parsing + full validation                                       | `internal/core/yaml.go`, `internal/core/types.go`                                          |
-| SSH key = identity (auto-create account on connect)                       | `internal/ssh/server.go`                                                                   |
-| Content-addressed definitions (SHA-256)                                   | `internal/core/hash.go`                                                                    |
-| Two-DB split (registry + ledger)                                          | `schema/registry/`, `schema/ledger/`, `internal/dolt/`                                     |
-| 8 meta-tools: search, info, register, crawl, report, upvote, verify, help | `internal/ssh/commands.go`                                                                 |
-| `help` command (agent self-discovery)                                     | `internal/ssh/commands.go` — structured YAML command catalog                               |
-| Interactive TUI (bubbletea)                                               | `internal/ssh/tui.go` — search, browse, detail views over SSH                              |
-| `.well-known/toolshed.yaml` crawler                                       | `internal/crawl/crawl.go` — domain security check, 1MB body cap, content hash verification |
-| Protocol agnosticism (rest/mcp/grpc/graphql)                              | Field in the tool record, validated on parse                                               |
-| Payment decoupled (free, stripe, api_key, l402, cashu, mpp)               | All in `PaymentMethod` type                                                                |
-| Simplified reputation                                                     | Derived from upvotes + reports                                                             |
-| Dolt Docker Compose                                                       | `docker-compose.yml`                                                                       |
-| Seed data (fraud-detection + word-count examples)                         | `schema/registry/seed.sql`                                                                 |
-| Word count example tool                                                   | `cmd/wordcount/`                                                                           |
-| Fly.io deployment (Dockerfile + fly.toml + startup script)                | `deploy/Dockerfile`, `deploy/fly.toml`, `deploy/start.sh`                                  |
+| Feature                                                         | Location                                                                                   |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| SSH-first interface (wish)                                      | `cmd/ssh/`, `internal/ssh/`                                                                |
+| YAML spec parsing + full validation                             | `internal/core/yaml.go`, `internal/core/types.go`                                          |
+| SSH key = identity (auto-create account on connect)             | `internal/ssh/server.go`                                                                   |
+| Content-addressed definitions (SHA-256)                         | `internal/core/hash.go`                                                                    |
+| Two-DB split (registry + ledger)                                | `schema/registry/`, `schema/ledger/`, `internal/dolt/`                                     |
+| 7 meta-tools: search, info, crawl, report, upvote, verify, help | `internal/ssh/commands.go`                                                                 |
+| `help` command (agent self-discovery)                           | `internal/ssh/commands.go` — structured YAML command catalog                               |
+| Interactive TUI (bubbletea)                                     | `internal/ssh/tui.go` — search, browse, detail views over SSH                              |
+| `.well-known/toolshed.yaml` crawler                             | `internal/crawl/crawl.go` — domain security check, 1MB body cap, content hash verification |
+| Protocol agnosticism (rest/mcp/grpc/graphql)                    | Field in the tool record, validated on parse                                               |
+| Payment decoupled (free, stripe, api_key, l402, cashu, mpp)     | All in `PaymentMethod` type                                                                |
+| Simplified reputation                                           | Derived from upvotes + reports                                                             |
+| Dolt Docker Compose                                             | `docker-compose.yml`                                                                       |
+| Seed data (fraud-detection + word-count examples)               | `schema/registry/seed.sql`                                                                 |
+| Word count example tool                                         | `cmd/wordcount/`                                                                           |
+| Fly.io deployment (Dockerfile + fly.toml + startup script)      | `deploy/Dockerfile`, `deploy/fly.toml`, `deploy/start.sh`                                  |
 
 ### 🟡 Stubbed / Partial
 
@@ -818,13 +814,13 @@ The core prototype loop is complete. An agent can SSH in, search, discover tools
 
 ### 🔜 Not Built Yet
 
-| Feature                      | What's Missing                                                   |
-| ---------------------------- | ---------------------------------------------------------------- |
-| `cmd/toolshed/` CLI          | Cobra CLI for local use (`toolshed register`, `toolshed verify`) |
-| `apps/mcp-server/`           | TypeScript MCP server wrapping SSH commands for discovery        |
-| `docs/` directory            | Design docs, YAML spec reference                                 |
-| DoltHub publishing           | `dolt push` to DoltHub for public federation                     |
-| Provider counter-attestation | Open question in doc, not implemented                            |
+| Feature                      | What's Missing                                                |
+| ---------------------------- | ------------------------------------------------------------- |
+| `cmd/toolshed/` CLI          | Cobra CLI for local use (`toolshed crawl`, `toolshed verify`) |
+| `apps/mcp-server/`           | TypeScript MCP server wrapping SSH commands for discovery     |
+| `docs/` directory            | Design docs, YAML spec reference                              |
+| DoltHub publishing           | `dolt push` to DoltHub for public federation                  |
+| Provider counter-attestation | Open question in doc, not implemented                         |
 
 ---
 
@@ -869,7 +865,7 @@ CREATE TABLE tool_listings (
     description TEXT,
     pricing_json JSON,
     payment_json JSON,
-    source VARCHAR(32),                     -- 'push' (registered via SSH/API) or 'crawl' (from .well-known)
+    source VARCHAR(32),                     -- 'crawl' (from .well-known)
     created_at DATETIME,
     updated_at DATETIME,
     FOREIGN KEY (definition_hash) REFERENCES tool_definitions(content_hash),
@@ -1018,7 +1014,7 @@ toolshed/
 ├── cmd/
 │   ├── ssh/              # ✅ Go: SSH server entry point (wish)
 │   ├── wordcount/        # ✅ Go: example tool provider (REST)
-│   └── toolshed/         # 🔜 Go: CLI (cobra) — toolshed register, toolshed verify, etc.
+│   └── toolshed/         # 🔜 Go: CLI (cobra) — toolshed crawl, toolshed verify, etc.
 ├── apps/
 │   └── mcp-server/       # 🔜 TypeScript: thin MCP server → calls SSH for discovery
 ├── deploy/

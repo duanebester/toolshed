@@ -6,7 +6,6 @@
 //
 //	ssh toolshed.sh search "fraud detection"
 //	ssh toolshed.sh info acme.com/fraud-detection
-//	ssh toolshed.sh register < toolshed.yaml
 package ssh
 
 import (
@@ -360,8 +359,7 @@ func (s *Server) handleInteractiveFallback(sess ssh.Session, fingerprint string)
    ssh toolshed.sh help                       Show all commands (YAML)
    ssh toolshed.sh search "fraud detection"   Search for tools
    ssh toolshed.sh info acme.com/fraud-tool   Get tool details
-   ssh toolshed.sh register < toolshed.yaml   Register tools
-   ssh toolshed.sh crawl acme.com             Crawl a domain
+   ssh toolshed.sh crawl acme.com             Index tools from a domain
 
  Interactive TUI:
    ssh -t toolshed.sh                         Launch the TUI browser

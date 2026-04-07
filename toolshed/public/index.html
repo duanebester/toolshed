@@ -1148,9 +1148,10 @@
             <span class="key">$ ssh toolshed.sh info</span>
             <span class="str">acme.com/fraud-detection</span><br />
             <br />
-            <span class="comment"># Register tools</span><br />
-            <span class="key">$ ssh toolshed.sh register</span> &lt;
-            toolshed.yaml<br />
+            <span class="comment"># Crawl &amp; index a domain's tools</span
+            ><br />
+            <span class="key">$ ssh toolshed.sh crawl</span>
+            <span class="str">acme.com</span><br />
             <br />
             <span class="comment"
               ># Your SSH key is your identity. Zero signup.</span
@@ -1480,8 +1481,8 @@
 <span class="c"># Get tool details</span>
 <span class="k">ssh toolshed.sh info</span> <span class="s">acme.com/fraud-detection</span>
 
-<span class="c"># Register tools</span>
-<span class="k">ssh toolshed.sh register</span> &lt; toolshed.yaml
+<span class="c"># Crawl a domain's tools</span>
+<span class="k">ssh toolshed.sh crawl</span> <span class="s">acme.com</span>
 
 <span class="c"># Report a tool call (for reputation)</span>
 <span class="k">ssh toolshed.sh report</span> --tool acme.com/fraud-detection \
@@ -1532,14 +1533,14 @@
 
         <p>
           ~25 lines for a complete tool registration. An agent can read it. A
-          human can write it. Two ways in: <strong>push</strong> via
-          <code>ssh toolshed.sh register &lt; toolshed.yaml</code> or
-          <strong>pull</strong> via <code>ssh toolshed.sh crawl acme.com</code>.
+          human can write it. Host it at
+          <code>/.well-known/toolshed.yaml</code>, then
+          <code>ssh toolshed.sh crawl acme.com</code> to index it.
         </p>
 
         <h3>The Meta-Tools</h3>
         <p>
-          The ToolShed exposes eight meta-tools via SSH (and optionally HTTP or
+          The ToolShed exposes seven meta-tools via SSH (and optionally HTTP or
           MCP):
         </p>
         <div
@@ -1570,18 +1571,7 @@
             </h4>
             <p>Get full details on a specific tool</p>
           </div>
-          <div class="problem-card">
-            <h4
-              style="
-                font-family: var(--font-mono);
-                font-size: 0.85rem;
-                color: var(--orange);
-              "
-            >
-              register
-            </h4>
-            <p>Publish a tool record to the registry</p>
-          </div>
+
           <div class="problem-card">
             <h4
               style="
@@ -1811,9 +1801,9 @@
         </div>
 
         <p>
-          Once verified, your key is bound to that domain. Tools you register
-          are attributed to <code>acme.com</code>. Your upvotes carry the weight
-          of a domain-verified identity.
+          Once verified, your key is bound to that domain. Tools crawled from
+          <code>acme.com</code> are attributed to your identity. Your upvotes
+          carry the weight of a domain-verified identity.
         </p>
 
         <h3>Why SSH Works for Agents</h3>
@@ -1872,9 +1862,9 @@
 
         <h3>The Tool Record (YAML)</h3>
         <p>
-          A provider registers a tool by publishing a
-          <code>toolshed.yaml</code> file or pushing one via SSH. The registry
-          splits it into two parts: an immutable
+          A provider publishes a
+          <code>toolshed.yaml</code> file on their domain. The registry crawls
+          it and splits it into two parts: an immutable
           <strong>definition</strong> (the contract) and a mutable
           <strong>listing</strong> (the metadata). The registry hashes the
           definition to produce a <code>content_hash</code> &mdash; the tool's
@@ -2388,8 +2378,8 @@
           </div>
           <div class="flow-step">
             <p>
-              They push it:
-              <code>ssh toolshed.sh register &lt; toolshed.yaml</code>
+              They (or anyone) trigger indexing:
+              <code>ssh toolshed.sh crawl acme.com</code>
             </p>
           </div>
           <div class="flow-step">

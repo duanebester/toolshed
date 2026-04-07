@@ -4,7 +4,6 @@
 //
 //	ssh toolshed.sh search "fraud detection"
 //	ssh toolshed.sh info acme.com/fraud-detection
-//	ssh toolshed.sh register < toolshed.yaml
 //	ssh toolshed.sh report --tool acme.com/fraud-detection --latency 120 --success
 //	ssh toolshed.sh upvote acme.com/fraud-detection --quality 5 --useful --comment "great"
 //	ssh toolshed.sh verify acme.com
@@ -19,8 +18,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
+	"net"
+	"sort"
 	"strings"
 	"time"
 
@@ -61,8 +61,6 @@ func (d *CommandDispatcher) Dispatch(sess ssh.Session, cmd []string) {
 		d.handleSearch(sess, args)
 	case "info":
 		d.handleInfo(sess, args)
-	case "register":
-		d.handleRegister(sess, args)
 	case "report":
 		d.handleReport(sess, args)
 	case "upvote":
@@ -79,7 +77,7 @@ func (d *CommandDispatcher) Dispatch(sess ssh.Session, cmd []string) {
 		d.handleHelp(sess, args)
 	default:
 		fmt.Fprintf(sess.Stderr(), "error: unknown command %q\n", name)
-		fmt.Fprintf(sess.Stderr(), "available commands: search, info, register, report, upvote, verify, crawl, audit, reputation, help\n")
+		fmt.Fprintf(sess.Stderr(), "available commands: search, info, report, upvote, verify, crawl, audit, reputation, help\n")
 	}
 }
 
@@ -104,11 +102,13 @@ func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
 		Commands: []helpCommand{
 			{
 				Name:        "search",
-				Usage:       "search <query>",
-				Description: "Search for tools by name, description, or capability",
+				Usage:       "search <query> [--sort quality|upvotes] [--min-quality N] [--min-upvotes N] [--verified]",
+				Description: "Search for tools by name, description, or capability. Filter and sort by reputation.",
 				Examples: []string{
 					"ssh toolshed.sh search \"fraud detection\"",
-					"ssh toolshed.sh search payments",
+					"ssh toolshed.sh search payments --sort quality",
+					"ssh toolshed.sh search ml --min-upvotes 3 --min-quality 4",
+					"ssh toolshed.sh search api --verified --sort upvotes",
 				},
 			},
 			{
@@ -117,15 +117,6 @@ func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
 				Description: "Get full details for a specific tool",
 				Examples: []string{
 					"ssh toolshed.sh info acme.com/fraud-detection",
-				},
-			},
-			{
-				Name:        "register",
-				Usage:       "register",
-				Description: "Register tools from a YAML provider file (pipe to stdin)",
-				Examples: []string{
-					"ssh toolshed.sh register < toolshed.yaml",
-					"cat toolshed.yaml | ssh toolshed.sh register",
 				},
 			},
 			{
@@ -206,13 +197,33 @@ func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
 // ---------------------------------------------------------------------------
 
 func (d *CommandDispatcher) handleSearch(sess ssh.Session, args []string) {
-	if len(args) == 0 {
-		fmt.Fprintf(sess.Stderr(), "usage: search <query>\n")
-		fmt.Fprintf(sess.Stderr(), "example: ssh toolshed.sh search \"fraud detection\"\n")
+	// Parse flags — Go's flag package stops at the first non-flag arg, so
+	// we reorder args to move flags before positional query words. This lets
+	// users write: search fraud --sort quality --min-upvotes 3
+	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	fs.SetOutput(sess.Stderr())
+
+	sortBy := fs.String("sort", "", "sort results by: quality, upvotes (default: relevance)")
+	minQuality := fs.Float64("min-quality", 0, "minimum average quality score (1-5)")
+	minUpvotes := fs.Int("min-upvotes", 0, "minimum number of upvotes")
+	verifiedOnly := fs.Bool("verified", false, "only show tools from verified providers")
+
+	if err := fs.Parse(reorderSearchArgs(args)); err != nil {
 		return
 	}
 
-	query := strings.Join(args, " ")
+	queryArgs := fs.Args()
+	if len(queryArgs) == 0 {
+		fmt.Fprintf(sess.Stderr(), "usage: search <query> [--sort quality|upvotes] [--min-quality N] [--min-upvotes N] [--verified]\n")
+		fmt.Fprintf(sess.Stderr(), "examples:\n")
+		fmt.Fprintf(sess.Stderr(), "  ssh toolshed.sh search \"fraud detection\"\n")
+		fmt.Fprintf(sess.Stderr(), "  ssh toolshed.sh search payments --sort quality\n")
+		fmt.Fprintf(sess.Stderr(), "  ssh toolshed.sh search ml --min-upvotes 3 --min-quality 4\n")
+		fmt.Fprintf(sess.Stderr(), "  ssh toolshed.sh search api --verified --sort upvotes\n")
+		return
+	}
+
+	query := strings.Join(queryArgs, " ")
 	ctx := sess.Context()
 
 	// Try semantic search first if embedder is configured.
@@ -239,6 +250,12 @@ func (d *CommandDispatcher) handleSearch(sess ssh.Session, args []string) {
 		results = append(results, result)
 	}
 
+	// ── Filter by reputation criteria ───────────────────────────────────
+	results = filterSearchResults(results, *minQuality, *minUpvotes, *verifiedOnly)
+
+	// ── Sort ────────────────────────────────────────────────────────────
+	sortSearchResults(results, *sortBy)
+
 	resp := core.SearchResponse{
 		Results: results,
 		Total:   len(results),
@@ -252,6 +269,118 @@ func (d *CommandDispatcher) handleSearch(sess ssh.Session, args []string) {
 
 	sess.Write(data)
 	sess.Write([]byte("\n"))
+}
+
+// ---------------------------------------------------------------------------
+// Search argument reordering + filtering and sorting helpers
+// ---------------------------------------------------------------------------
+
+// reorderSearchArgs moves flag-like arguments before positional (query) words
+// so Go's flag.FlagSet parses them correctly. Without this, a command like
+// "search fraud --sort quality" would treat "--sort" and "quality" as query
+// words because flag.Parse stops at the first non-flag argument ("fraud").
+func reorderSearchArgs(args []string) []string {
+	valuedFlags := map[string]bool{
+		"--sort": true, "-sort": true,
+		"--min-quality": true, "-min-quality": true,
+		"--min-upvotes": true, "-min-upvotes": true,
+	}
+	boolFlags := map[string]bool{
+		"--verified": true, "-verified": true,
+	}
+
+	var flagArgs, queryArgs []string
+	for i := 0; i < len(args); i++ {
+		if valuedFlags[args[i]] && i+1 < len(args) {
+			flagArgs = append(flagArgs, args[i], args[i+1])
+			i++ // skip the value
+		} else if boolFlags[args[i]] {
+			flagArgs = append(flagArgs, args[i])
+		} else {
+			queryArgs = append(queryArgs, args[i])
+		}
+	}
+	return append(flagArgs, queryArgs...)
+}
+
+// filterSearchResults removes results that don't meet the caller's reputation
+// criteria. If all thresholds are zero and verifiedOnly is false, it returns
+// the slice unchanged (no allocation).
+func filterSearchResults(results []core.SearchResult, minQuality float64, minUpvotes int, verifiedOnly bool) []core.SearchResult {
+	if minQuality == 0 && minUpvotes == 0 && !verifiedOnly {
+		return results
+	}
+
+	filtered := make([]core.SearchResult, 0, len(results))
+	for _, r := range results {
+		if verifiedOnly && !r.Provider.Verified {
+			continue
+		}
+		if minUpvotes > 0 {
+			if r.Reputation == nil || r.Reputation.TotalUpvotes < minUpvotes {
+				continue
+			}
+		}
+		if minQuality > 0 {
+			if r.Reputation == nil || r.Reputation.AvgQuality < minQuality {
+				continue
+			}
+		}
+		filtered = append(filtered, r)
+	}
+	return filtered
+}
+
+// sortSearchResults sorts results in-place by the given criterion.
+// Unrecognised values (including "") leave the order unchanged, preserving
+// the default (semantic relevance or alphabetical from LIKE search).
+func sortSearchResults(results []core.SearchResult, sortBy string) {
+	switch sortBy {
+	case "quality":
+		sort.Slice(results, func(i, j int) bool {
+			qi, qj := 0.0, 0.0
+			if results[i].Reputation != nil {
+				qi = results[i].Reputation.AvgQuality
+			}
+			if results[j].Reputation != nil {
+				qj = results[j].Reputation.AvgQuality
+			}
+			if qi != qj {
+				return qi > qj
+			}
+			// Tie-break: more upvotes wins.
+			ui, uj := 0, 0
+			if results[i].Reputation != nil {
+				ui = results[i].Reputation.TotalUpvotes
+			}
+			if results[j].Reputation != nil {
+				uj = results[j].Reputation.TotalUpvotes
+			}
+			return ui > uj
+		})
+	case "upvotes":
+		sort.Slice(results, func(i, j int) bool {
+			ui, uj := 0, 0
+			if results[i].Reputation != nil {
+				ui = results[i].Reputation.TotalUpvotes
+			}
+			if results[j].Reputation != nil {
+				uj = results[j].Reputation.TotalUpvotes
+			}
+			if ui != uj {
+				return ui > uj
+			}
+			// Tie-break: higher quality wins.
+			qi, qj := 0.0, 0.0
+			if results[i].Reputation != nil {
+				qi = results[i].Reputation.AvgQuality
+			}
+			if results[j].Reputation != nil {
+				qj = results[j].Reputation.AvgQuality
+			}
+			return qi > qj
+		})
+	}
 }
 
 // semanticSearch performs embedding-based semantic search. Returns nil if
@@ -460,94 +589,6 @@ func (d *CommandDispatcher) handleInfo(sess ssh.Session, args []string) {
 	}
 
 	sess.Write(data)
-	sess.Write([]byte("\n"))
-}
-
-// ---------------------------------------------------------------------------
-// register  (reads YAML from stdin)
-// ---------------------------------------------------------------------------
-
-// registerResponse is returned after successful tool registration.
-type registerResponse struct {
-	Registered []registeredTool `json:"registered" yaml:"registered"`
-	Total      int              `json:"total" yaml:"total"`
-}
-
-type registeredTool struct {
-	ID             string `json:"id" yaml:"id"`
-	Name           string `json:"name" yaml:"name"`
-	DefinitionHash string `json:"definition_hash" yaml:"definition_hash"`
-}
-
-func (d *CommandDispatcher) handleRegister(sess ssh.Session, args []string) {
-	ctx := sess.Context()
-
-	// Read the YAML provider file from stdin.
-	data, err := io.ReadAll(sess)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to read stdin: %v\n", err)
-		return
-	}
-
-	if len(data) == 0 {
-		fmt.Fprintf(sess.Stderr(), "error: no data received on stdin\n")
-		fmt.Fprintf(sess.Stderr(), "usage: ssh toolshed.sh register < toolshed.yaml\n")
-		return
-	}
-
-	// Parse and validate the provider file.
-	pf, err := core.ParseProviderFileFromBytes(data)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: invalid provider file: %v\n", err)
-		return
-	}
-
-	// Convert to definition + listing records.
-	defs, listings, err := core.ConvertToRecords(pf, d.fingerprint)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to convert provider file: %v\n", err)
-		return
-	}
-
-	// Register each definition and listing.
-	registered := make([]registeredTool, 0, len(defs))
-	for i, def := range defs {
-		if err := d.registry.RegisterToolDefinition(ctx, def); err != nil {
-			fmt.Fprintf(sess.Stderr(), "error: failed to register definition for %q: %v\n", listings[i].Name, err)
-			return
-		}
-
-		if err := d.registry.RegisterToolListing(ctx, listings[i]); err != nil {
-			fmt.Fprintf(sess.Stderr(), "error: failed to register listing for %q: %v\n", listings[i].Name, err)
-			return
-		}
-
-		registered = append(registered, registeredTool{
-			ID:             listings[i].ID,
-			Name:           listings[i].Name,
-			DefinitionHash: def.ContentHash,
-		})
-
-		log.Printf("ssh: registered %s (hash: %s) by %s", listings[i].ID, def.ContentHash, d.fingerprint)
-
-		// Generate embedding for the newly registered tool (best-effort).
-		if d.embedder != nil {
-			go d.generateEmbedding(listings[i], def)
-		}
-	}
-
-	resp := registerResponse{
-		Registered: registered,
-		Total:      len(registered),
-	}
-
-	out, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(out)
 	sess.Write([]byte("\n"))
 }
 
@@ -1028,9 +1069,11 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 	}
 
 	domain := args[0]
+	ctx := sess.Context()
 
-	// Build the expected TXT record value.
+	// Build the expected TXT record value and hostname.
 	txtValue := fmt.Sprintf("toolshed-verify=%s", d.fingerprint)
+	txtHost := fmt.Sprintf("_toolshed.%s", domain)
 
 	resp := verifyResponse{
 		Domain:      domain,
@@ -1043,21 +1086,63 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 		},
 		DNSRecord: verifyDNSRecord{
 			Type:  "TXT",
-			Name:  fmt.Sprintf("_toolshed.%s", domain),
+			Name:  txtHost,
 			Value: txtValue,
 		},
 	}
 
-	// Check if already verified.
-	ctx := sess.Context()
+	// Fast path: already verified in the database.
 	acct, err := d.registry.GetAccount(ctx, d.fingerprint)
 	if err != nil {
 		log.Printf("ssh: verify: failed to get account %s: %v", d.fingerprint, err)
 	}
 	if acct != nil && acct.DomainVerified && acct.Domain == domain {
 		resp.Status = "verified"
+		data, _ := json.Marshal(resp)
+		sess.Write(data)
+		sess.Write([]byte("\n"))
+		return
 	}
 
+	// Perform DNS TXT lookup to check for the verification record.
+	resolver := net.DefaultResolver
+	records, err := resolver.LookupTXT(ctx, txtHost)
+	if err != nil {
+		log.Printf("ssh: verify: DNS lookup for %s failed: %v", txtHost, err)
+		// DNS lookup failed — return pending with instructions so the
+		// user knows what record to add.
+		data, _ := json.Marshal(resp)
+		sess.Write(data)
+		sess.Write([]byte("\n"))
+		return
+	}
+
+	// Check if any TXT record matches the expected value.
+	matched := false
+	for _, r := range records {
+		if strings.TrimSpace(r) == txtValue {
+			matched = true
+			break
+		}
+	}
+
+	if !matched {
+		log.Printf("ssh: verify: no matching TXT record at %s (found %d records)", txtHost, len(records))
+		data, _ := json.Marshal(resp)
+		sess.Write(data)
+		sess.Write([]byte("\n"))
+		return
+	}
+
+	// DNS record matches — bind the domain to this SSH key.
+	if err := d.registry.UpdateAccountDomain(ctx, d.fingerprint, domain); err != nil {
+		fmt.Fprintf(sess.Stderr(), "error: DNS record verified but failed to update account: %v\n", err)
+		log.Printf("ssh: verify: UpdateAccountDomain failed for %s/%s: %v", d.fingerprint, domain, err)
+		return
+	}
+
+	log.Printf("ssh: domain %s verified for %s via DNS TXT", domain, d.fingerprint)
+	resp.Status = "verified"
 	data, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)

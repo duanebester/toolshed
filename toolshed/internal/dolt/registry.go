@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -569,7 +568,7 @@ func (r *Registry) doltCommit(ctx context.Context, db *sql.DB, table, message st
 		return "", fmt.Errorf("dolt: add %q: %w", table, err)
 	}
 	var hash string
-	err := db.QueryRowContext(ctx, "SELECT DOLT_COMMIT('-m', ?)", message).Scan(&hash)
+	err := db.QueryRowContext(ctx, "CALL DOLT_COMMIT('-m', ?)", message).Scan(&hash)
 	if err != nil {
 		return "", fmt.Errorf("dolt: commit %q: %w", message, err)
 	}
@@ -789,8 +788,7 @@ func (r *Registry) WriteUpvote(ctx context.Context, upvote core.Upvote) error {
 		// (key_fingerprint, invocation_id) fires when the same key
 		// tries to upvote the same invocation twice.
 		var mysqlErr *mysql.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 &&
-			strings.Contains(mysqlErr.Message, "idx_upvotes_key_invocation") {
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 			return ErrDuplicateUpvote
 		}
 		return fmt.Errorf("dolt: write upvote %q: %w", upvote.ID, err)

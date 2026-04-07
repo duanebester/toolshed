@@ -27,7 +27,7 @@ func ParseProviderFile(path string) (*ProviderFile, error) {
 
 // ParseProviderFileFromReader parses a toolshed.yaml from an io.Reader.
 // This is the primary entry point used by both file-based and stdin-based
-// registration flows (e.g. `ssh toolshed.sh register < toolshed.yaml`).
+// parsing flows (e.g. crawl fetching from /.well-known/toolshed.yaml).
 func ParseProviderFileFromReader(r io.Reader) (*ProviderFile, error) {
 	var pf ProviderFile
 	dec := yaml.NewDecoder(r)
