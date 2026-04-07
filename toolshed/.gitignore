@@ -1,5 +1,4 @@
 # Build artifacts
-ssh
 *.exe
 *.test
 *.out

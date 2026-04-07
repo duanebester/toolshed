@@ -80,6 +80,24 @@ for i in $(seq 1 30); do
 done
 
 # ---------------------------------------------------------------------------
+# Apply pending schema migrations (idempotent)
+# ---------------------------------------------------------------------------
+# Each CREATE INDEX is wrapped with || true so it's a no-op if the index
+# already exists (Dolt/MySQL returns "duplicate key name" which we ignore).
+# The dolt commit is also wrapped — if nothing changed, "nothing to commit"
+# is silently swallowed.
+echo "==> Applying pending schema migrations..."
+cd "$DATA_DIR/toolshed_registry"
+
+# 003: upvote constraints — unique index + covering index for budget checks
+dolt sql -q "CREATE UNIQUE INDEX idx_upvotes_key_invocation ON upvotes (key_fingerprint, invocation_id)" 2>/dev/null || true
+dolt sql -q "CREATE INDEX idx_upvotes_key_tool ON upvotes (key_fingerprint, tool_id)" 2>/dev/null || true
+dolt add . 2>/dev/null || true
+dolt commit -m "Apply 003: upvote constraints" 2>/dev/null || true
+
+echo "==> Schema migrations complete."
+
+# ---------------------------------------------------------------------------
 # Configure environment for the SSH server
 # ---------------------------------------------------------------------------
 echo "==> Setting SSH server environment variables..."
