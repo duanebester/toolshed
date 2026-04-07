@@ -37,6 +37,86 @@ import (
 // for a given tool. Each upvote must reference a distinct invocation.
 const maxUpvotesPerTool = 5
 
+const (
+	semanticSearchThreshold = 0.3
+	maxSemanticResults      = 20
+	protocolVersion         = "0.1"
+)
+
+// writeJSON marshals v as JSON and writes it to the session's stdout,
+// followed by a newline. Errors are reported on stderr.
+func writeJSON(sess ssh.Session, v any) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
+		return
+	}
+	sess.Write(append(data, '\n'))
+}
+
+// requireArgs checks that args is non-empty, printing usage and example
+// hints to stderr if it is empty. Returns true when args are present.
+func requireArgs(sess ssh.Session, args []string, usage, example string) bool {
+	if len(args) > 0 {
+		return true
+	}
+	fmt.Fprintf(sess.Stderr(), "usage: %s\n", usage)
+	fmt.Fprintf(sess.Stderr(), "example: %s\n", example)
+	return false
+}
+
+// checkRateLimit returns true (and writes an error to stderr) when the
+// command should be rejected due to rate limiting.
+func (d *CommandDispatcher) checkRateLimit(sess ssh.Session, command string) bool {
+	if d.cmdLimiter != nil && !d.cmdLimiter.Allow(d.fingerprint, command) {
+		fmt.Fprintf(sess.Stderr(), "error: rate limit exceeded — too many %ss, try again shortly\n", command)
+		return true // rate limited
+	}
+	return false
+}
+
+// enrichListing fetches the definition, reputation, and provider verification
+// status for a listing. Used by search, info, and the TUI.
+func enrichListing(registry *dolt.Registry, ctx context.Context, listing core.ToolListing) (def *core.ToolDefinition, rep *core.Reputation, verified bool) {
+	var err error
+	def, err = registry.GetToolDefinition(ctx, listing.DefinitionHash)
+	if err != nil {
+		log.Printf("enrichListing: get definition %s for %s: %v", listing.DefinitionHash, listing.ID, err)
+	}
+	rep, err = registry.GetReputation(ctx, listing.ID)
+	if err != nil {
+		log.Printf("enrichListing: get reputation for %s: %v", listing.ID, err)
+	}
+	if listing.ProviderAccount != "" {
+		acct, err := registry.GetAccount(ctx, listing.ProviderAccount)
+		if err != nil {
+			log.Printf("enrichListing: get provider account for %s: %v", listing.ID, err)
+		}
+		if acct != nil {
+			verified = acct.DomainVerified
+		}
+	}
+	return
+}
+
+// repQuality returns the AvgQuality from a SearchResult's reputation,
+// or 0 if reputation is nil.
+func repQuality(r core.SearchResult) float64 {
+	if r.Reputation != nil {
+		return r.Reputation.AvgQuality
+	}
+	return 0
+}
+
+// repUpvotes returns the TotalUpvotes from a SearchResult's reputation,
+// or 0 if reputation is nil.
+func repUpvotes(r core.SearchResult) int {
+	if r.Reputation != nil {
+		return r.Reputation.TotalUpvotes
+	}
+	return 0
+}
+
 // CommandDispatcher routes SSH commands to their handlers.
 type CommandDispatcher struct {
 	registry    *dolt.Registry
@@ -97,7 +177,7 @@ type helpCommand struct {
 
 func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
 	resp := helpResponse{
-		Version:     "0.1",
+		Version:     protocolVersion,
 		Description: "ToolShed — the SSH-native tool registry for AI agents",
 		Commands: []helpCommand{
 			{
@@ -182,14 +262,7 @@ func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
 		Interactive: "Connect without a command for the interactive browser: ssh toolshed.sh",
 	}
 
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // ---------------------------------------------------------------------------
@@ -261,14 +334,7 @@ func (d *CommandDispatcher) handleSearch(sess ssh.Session, args []string) {
 		Total:   len(results),
 	}
 
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal results: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // ---------------------------------------------------------------------------
@@ -338,47 +404,21 @@ func sortSearchResults(results []core.SearchResult, sortBy string) {
 	switch sortBy {
 	case "quality":
 		sort.Slice(results, func(i, j int) bool {
-			qi, qj := 0.0, 0.0
-			if results[i].Reputation != nil {
-				qi = results[i].Reputation.AvgQuality
-			}
-			if results[j].Reputation != nil {
-				qj = results[j].Reputation.AvgQuality
-			}
+			qi, qj := repQuality(results[i]), repQuality(results[j])
 			if qi != qj {
 				return qi > qj
 			}
 			// Tie-break: more upvotes wins.
-			ui, uj := 0, 0
-			if results[i].Reputation != nil {
-				ui = results[i].Reputation.TotalUpvotes
-			}
-			if results[j].Reputation != nil {
-				uj = results[j].Reputation.TotalUpvotes
-			}
-			return ui > uj
+			return repUpvotes(results[i]) > repUpvotes(results[j])
 		})
 	case "upvotes":
 		sort.Slice(results, func(i, j int) bool {
-			ui, uj := 0, 0
-			if results[i].Reputation != nil {
-				ui = results[i].Reputation.TotalUpvotes
-			}
-			if results[j].Reputation != nil {
-				uj = results[j].Reputation.TotalUpvotes
-			}
+			ui, uj := repUpvotes(results[i]), repUpvotes(results[j])
 			if ui != uj {
 				return ui > uj
 			}
 			// Tie-break: higher quality wins.
-			qi, qj := 0.0, 0.0
-			if results[i].Reputation != nil {
-				qi = results[i].Reputation.AvgQuality
-			}
-			if results[j].Reputation != nil {
-				qj = results[j].Reputation.AvgQuality
-			}
-			return qi > qj
+			return repQuality(results[i]) > repQuality(results[j])
 		})
 	}
 }
@@ -405,15 +445,15 @@ func (d *CommandDispatcher) semanticSearch(ctx context.Context, query string) ([
 		return nil, nil
 	}
 
-	// Rank by cosine similarity with a threshold of 0.3.
-	scored := embeddings.RankByCosineSimilarity(queryVec, allEmbeddings, 0.3)
+	// Rank by cosine similarity with a minimum threshold.
+	scored := embeddings.RankByCosineSimilarity(queryVec, allEmbeddings, semanticSearchThreshold)
 	if len(scored) == 0 {
 		return nil, nil
 	}
 
-	// Cap at 20 results.
-	if len(scored) > 20 {
-		scored = scored[:20]
+	// Cap results.
+	if len(scored) > maxSemanticResults {
+		scored = scored[:maxSemanticResults]
 	}
 
 	// Fetch the matching tool listings.
@@ -461,34 +501,16 @@ func (d *CommandDispatcher) buildSearchResult(sess ssh.Session, listing core.Too
 		},
 	}
 
-	// Fetch the immutable definition for capabilities, schema, and invocation.
-	def, err := d.registry.GetToolDefinition(ctx, listing.DefinitionHash)
-	if err != nil {
-		log.Printf("ssh: failed to get definition %s for %s: %v", listing.DefinitionHash, listing.ID, err)
-	}
+	def, rep, verified := enrichListing(d.registry, ctx, listing)
 	if def != nil {
 		result.Capabilities = def.Capabilities
 		result.Invoke = def.Invocation
 		result.Schema = def.Schema
 	}
-
-	// Fetch reputation (optional — new tools won't have any).
-	rep, err := d.registry.GetReputation(ctx, listing.ID)
-	if err != nil {
-		log.Printf("ssh: failed to get reputation for %s: %v", listing.ID, err)
-	}
 	if rep != nil {
 		result.Reputation = rep
 	}
-
-	// Check domain verification status.
-	acct, err := d.registry.GetAccount(ctx, listing.ProviderAccount)
-	if err != nil {
-		log.Printf("ssh: failed to get provider account for %s: %v", listing.ID, err)
-	}
-	if acct != nil {
-		result.Provider.Verified = acct.DomainVerified
-	}
+	result.Provider.Verified = verified
 
 	return result
 }
@@ -517,9 +539,7 @@ type toolInfoResponse struct {
 }
 
 func (d *CommandDispatcher) handleInfo(sess ssh.Session, args []string) {
-	if len(args) == 0 {
-		fmt.Fprintf(sess.Stderr(), "usage: info <tool_id>\n")
-		fmt.Fprintf(sess.Stderr(), "example: ssh toolshed.sh info acme.com/fraud-detection\n")
+	if !requireArgs(sess, args, "info <tool_id>", "ssh toolshed.sh info acme.com/fraud-detection") {
 		return
 	}
 
@@ -553,43 +573,19 @@ func (d *CommandDispatcher) handleInfo(sess ssh.Session, args []string) {
 		UpdatedAt: listing.UpdatedAt,
 	}
 
-	// 2. Fetch the definition for schema, invocation, capabilities.
-	def, err := d.registry.GetToolDefinition(ctx, listing.DefinitionHash)
-	if err != nil {
-		log.Printf("ssh: info: failed to get definition %s: %v", listing.DefinitionHash, err)
-	}
+	// 2. Fetch definition, reputation, and verification via shared helper.
+	def, rep, verified := enrichListing(d.registry, ctx, *listing)
 	if def != nil {
 		resp.Capabilities = def.Capabilities
 		resp.Invoke = def.Invocation
 		resp.Schema = def.Schema
 	}
-
-	// 3. Fetch reputation.
-	rep, err := d.registry.GetReputation(ctx, listing.ID)
-	if err != nil {
-		log.Printf("ssh: info: failed to get reputation for %s: %v", listing.ID, err)
-	}
 	if rep != nil {
 		resp.Reputation = rep
 	}
+	resp.Provider.Verified = verified
 
-	// 4. Check provider verification.
-	acct, err := d.registry.GetAccount(ctx, listing.ProviderAccount)
-	if err != nil {
-		log.Printf("ssh: info: failed to get provider account: %v", err)
-	}
-	if acct != nil {
-		resp.Provider.Verified = acct.DomainVerified
-	}
-
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal tool info: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // generateEmbedding creates and stores an embedding for a tool. This runs
@@ -645,8 +641,7 @@ func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
 	// ── Rate limit ──────────────────────────────────────────────────────
 	// Prevent invocation flooding — a key can only submit N reports per
 	// window. This closes the "spam reports to generate upvote slots" hole.
-	if d.cmdLimiter != nil && !d.cmdLimiter.Allow(d.fingerprint, "report") {
-		fmt.Fprintf(sess.Stderr(), "error: rate limit exceeded — too many reports, try again shortly\n")
+	if d.checkRateLimit(sess, "report") {
 		return
 	}
 
@@ -733,14 +728,7 @@ func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
 		RecordedAt:     now.Format(time.RFC3339),
 	}
 
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // ---------------------------------------------------------------------------
@@ -762,8 +750,7 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 	// ── Rate limit ──────────────────────────────────────────────────────
 	// Prevent upvote flooding at the command level (complements the
 	// per-tool budget check below).
-	if d.cmdLimiter != nil && !d.cmdLimiter.Allow(d.fingerprint, "upvote") {
-		fmt.Fprintf(sess.Stderr(), "error: rate limit exceeded — too many upvotes, try again shortly\n")
+	if d.checkRateLimit(sess, "upvote") {
 		return
 	}
 
@@ -913,14 +900,7 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 		RecordedAt:   now.Format(time.RFC3339),
 	}
 
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // ---------------------------------------------------------------------------
@@ -935,9 +915,7 @@ type auditResponse struct {
 }
 
 func (d *CommandDispatcher) handleAudit(sess ssh.Session, args []string) {
-	if len(args) == 0 {
-		fmt.Fprintf(sess.Stderr(), "usage: audit <tool_id> [--limit <n>]\n")
-		fmt.Fprintf(sess.Stderr(), "example: ssh toolshed.sh audit acme.com/fraud-detection\n")
+	if !requireArgs(sess, args, "audit <tool_id> [--limit <n>]", "ssh toolshed.sh audit acme.com/fraud-detection") {
 		return
 	}
 
@@ -967,14 +945,7 @@ func (d *CommandDispatcher) handleAudit(sess ssh.Session, args []string) {
 		Total:   len(entries),
 	}
 
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // ---------------------------------------------------------------------------
@@ -994,9 +965,7 @@ type reputationResponse struct {
 }
 
 func (d *CommandDispatcher) handleReputation(sess ssh.Session, args []string) {
-	if len(args) == 0 {
-		fmt.Fprintf(sess.Stderr(), "usage: reputation <tool_id>\n")
-		fmt.Fprintf(sess.Stderr(), "example: ssh toolshed.sh reputation acme.com/fraud-detection\n")
+	if !requireArgs(sess, args, "reputation <tool_id>", "ssh toolshed.sh reputation acme.com/fraud-detection") {
 		return
 	}
 
@@ -1026,14 +995,7 @@ func (d *CommandDispatcher) handleReputation(sess ssh.Session, args []string) {
 		ComputedAt:      rep.ComputedAt.Format(time.RFC3339),
 	}
 
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // ---------------------------------------------------------------------------
@@ -1062,9 +1024,7 @@ type verifyDNSRecord struct {
 }
 
 func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
-	if len(args) == 0 {
-		fmt.Fprintf(sess.Stderr(), "usage: verify <domain>\n")
-		fmt.Fprintf(sess.Stderr(), "example: ssh toolshed.sh verify acme.com\n")
+	if !requireArgs(sess, args, "verify <domain>", "ssh toolshed.sh verify acme.com") {
 		return
 	}
 
@@ -1098,9 +1058,7 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 	}
 	if acct != nil && acct.DomainVerified && acct.Domain == domain {
 		resp.Status = "verified"
-		data, _ := json.Marshal(resp)
-		sess.Write(data)
-		sess.Write([]byte("\n"))
+		writeJSON(sess, resp)
 		return
 	}
 
@@ -1111,9 +1069,7 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 		log.Printf("ssh: verify: DNS lookup for %s failed: %v", txtHost, err)
 		// DNS lookup failed — return pending with instructions so the
 		// user knows what record to add.
-		data, _ := json.Marshal(resp)
-		sess.Write(data)
-		sess.Write([]byte("\n"))
+		writeJSON(sess, resp)
 		return
 	}
 
@@ -1128,9 +1084,7 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 
 	if !matched {
 		log.Printf("ssh: verify: no matching TXT record at %s (found %d records)", txtHost, len(records))
-		data, _ := json.Marshal(resp)
-		sess.Write(data)
-		sess.Write([]byte("\n"))
+		writeJSON(sess, resp)
 		return
 	}
 
@@ -1143,14 +1097,7 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 
 	log.Printf("ssh: domain %s verified for %s via DNS TXT", domain, d.fingerprint)
 	resp.Status = "verified"
-	data, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(data)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 }
 
 // ---------------------------------------------------------------------------
@@ -1198,7 +1145,7 @@ func (d *CommandDispatcher) handleCrawl(sess ssh.Session, args []string) {
 
 	result, err := crawl.CrawlDomain(ctx, domain, d.registry, d.fingerprint)
 	if err != nil {
-		fmt.Fprintf(sess, "error: crawl failed: %v\n", err)
+		fmt.Fprintf(sess.Stderr(), "error: crawl failed: %v\n", err)
 		return
 	}
 
@@ -1221,14 +1168,7 @@ func (d *CommandDispatcher) handleCrawl(sess ssh.Session, args []string) {
 		CrawledAt: result.CrawledAt.Format(time.RFC3339),
 	}
 
-	out, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Fprintf(sess, "error: failed to marshal response: %v\n", err)
-		return
-	}
-
-	sess.Write(out)
-	sess.Write([]byte("\n"))
+	writeJSON(sess, resp)
 
 	log.Printf("ssh: crawled %s — indexed %d tools", domain, result.Total)
 }

@@ -18,6 +18,7 @@ import (
 	"os"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 type providerRequest struct {
@@ -46,12 +47,12 @@ func main() {
 }
 
 func handleWordCount(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	var req providerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: %v", err)
 		return
 	}
-	defer r.Body.Close()
 
 	textRaw, ok := req.Input["text"]
 	if !ok {
@@ -87,19 +88,11 @@ func countText(text string) wordCountResult {
 		return wordCountResult{}
 	}
 
-	// Words: split on whitespace, count non-empty tokens.
-	words := 0
-	for _, field := range strings.Fields(text) {
-		if field != "" {
-			words++
-		}
-	}
+	// Words: split on whitespace.
+	words := len(strings.Fields(text))
 
 	// Characters: count all runes (including spaces/punctuation).
-	characters := 0
-	for range text {
-		characters++
-	}
+	characters := utf8.RuneCountInString(text)
 
 	// Sentences: count sentence-ending punctuation (.!?) that is followed
 	// by whitespace or end-of-string.  This is intentionally simple.

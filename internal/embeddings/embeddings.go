@@ -5,7 +5,10 @@ package embeddings
 
 import (
 	"context"
+	"encoding/binary"
 	"math"
+	"sort"
+	"strings"
 )
 
 // Embedder generates vector embeddings from text. Implementations may call
@@ -78,14 +81,9 @@ func RankByCosineSimilarity(query []float32, embeddings []ToolEmbedding, thresho
 		}
 	}
 
-	// Sort by score descending.
-	for i := 0; i < len(results); i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[j].Score > results[i].Score {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
 
 	return results
 }
@@ -99,13 +97,7 @@ func BuildToolText(name, description, providerDomain string, capabilities []stri
 		text += "\n" + description
 	}
 	if len(capabilities) > 0 {
-		for i, cap := range capabilities {
-			if i == 0 {
-				text += "\ncapabilities: " + cap
-			} else {
-				text += ", " + cap
-			}
-		}
+		text += "\ncapabilities: " + strings.Join(capabilities, ", ")
 	}
 	if providerDomain != "" {
 		text += "\nprovider: " + providerDomain
@@ -118,11 +110,7 @@ func BuildToolText(name, description, providerDomain string, capabilities []stri
 func EncodeEmbedding(v []float32) []byte {
 	buf := make([]byte, len(v)*4)
 	for i, f := range v {
-		bits := math.Float32bits(f)
-		buf[i*4] = byte(bits)
-		buf[i*4+1] = byte(bits >> 8)
-		buf[i*4+2] = byte(bits >> 16)
-		buf[i*4+3] = byte(bits >> 24)
+		binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(f))
 	}
 	return buf
 }
@@ -134,11 +122,7 @@ func DecodeEmbedding(data []byte) []float32 {
 	}
 	v := make([]float32, len(data)/4)
 	for i := range v {
-		bits := uint32(data[i*4]) |
-			uint32(data[i*4+1])<<8 |
-			uint32(data[i*4+2])<<16 |
-			uint32(data[i*4+3])<<24
-		v[i] = math.Float32frombits(bits)
+		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(data[i*4:]))
 	}
 	return v
 }

@@ -21,7 +21,6 @@ CREATE TABLE accounts (
     updated_at DATETIME
 );
 
-CREATE INDEX idx_accounts_domain ON accounts(domain);
 CREATE INDEX idx_accounts_domain_verified ON accounts(domain, domain_verified);
 CREATE INDEX idx_accounts_is_provider ON accounts(is_provider);
 
@@ -96,7 +95,6 @@ CREATE TABLE upvotes (
 );
 
 CREATE INDEX idx_upvotes_tool ON upvotes(tool_id);
-CREATE INDEX idx_upvotes_key_fingerprint ON upvotes(key_fingerprint);
 CREATE INDEX idx_upvotes_invocation ON upvotes(invocation_id);
 
 -- ============================================================

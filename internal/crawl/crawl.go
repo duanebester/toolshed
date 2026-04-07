@@ -122,7 +122,7 @@ func CrawlDomain(ctx context.Context, domain string, registry *dolt.Registry, pr
 		def := core.ToolDefinition{
 			Provider: core.Provider{
 				Domain:  pf.Provider.Domain,
-				Contact: pf.Provider.Contact,
+				Contact: providerAccount,
 			},
 			Schema:       entry.Schema,
 			Invocation:   entry.Invoke,
@@ -137,12 +137,7 @@ func CrawlDomain(ctx context.Context, domain string, registry *dolt.Registry, pr
 		}
 		def.ContentHash = hash
 
-		// 5c. Set the provider account fingerprint via Contact (existing
-		// convention — RegisterToolDefinition reads Contact into the
-		// provider_account column).
-		def.Provider.Contact = providerAccount
-
-		// 5d. Default pricing model to "free" if not specified.
+		// 5c. Default pricing model to "free" if not specified.
 		pricing := entry.Pricing
 		if pricing.Model == "" {
 			pricing.Model = "free"

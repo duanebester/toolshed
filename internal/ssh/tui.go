@@ -13,7 +13,6 @@ package ssh
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -688,36 +687,16 @@ func buildResult(registry *dolt.Registry, ctx context.Context, listing core.Tool
 		VersionLabel: listing.VersionLabel,
 	}
 
-	// Fetch the immutable definition for capabilities, schema, and invocation.
-	def, err := registry.GetToolDefinition(ctx, listing.DefinitionHash)
-	if err != nil {
-		log.Printf("tui: get definition %s for %s: %v", listing.DefinitionHash, listing.ID, err)
-	}
+	def, rep, verified := enrichListing(registry, ctx, listing)
 	if def != nil {
 		result.Capabilities = def.Capabilities
 		result.Invoke = def.Invocation
 		result.Schema = def.Schema
 	}
-
-	// Fetch reputation (optional — brand-new tools won't have any).
-	rep, err := registry.GetReputation(ctx, listing.ID)
-	if err != nil {
-		log.Printf("tui: get reputation for %s: %v", listing.ID, err)
-	}
 	if rep != nil {
 		result.Reputation = rep
 	}
-
-	// Check the provider account's domain verification status.
-	if listing.ProviderAccount != "" {
-		acct, err := registry.GetAccount(ctx, listing.ProviderAccount)
-		if err != nil {
-			log.Printf("tui: get provider account for %s: %v", listing.ID, err)
-		}
-		if acct != nil {
-			result.Provider.Verified = acct.DomainVerified
-		}
-	}
+	result.Provider.Verified = verified
 
 	return result
 }

@@ -11,20 +11,22 @@ import (
 	ort "github.com/yalue/onnxruntime_go"
 )
 
-var ortInit sync.Once
+var (
+	ortInit    sync.Once
+	ortInitErr error
+)
 
 // InitONNXRuntime initializes the ONNX Runtime environment. Must be called
 // before creating any ONNXEmbedder. If libPath is empty, the runtime library
 // is expected to be in the system's default library search path.
 func InitONNXRuntime(libPath string) error {
-	var initErr error
 	ortInit.Do(func() {
 		if libPath != "" {
 			ort.SetSharedLibraryPath(libPath)
 		}
-		initErr = ort.InitializeEnvironment()
+		ortInitErr = ort.InitializeEnvironment()
 	})
-	return initErr
+	return ortInitErr
 }
 
 // DestroyONNXRuntime cleans up the ONNX Runtime global environment.
@@ -169,7 +171,10 @@ func (e *ONNXEmbedder) EmbedBatch(ctx context.Context, texts []string) ([][]floa
 // mean-pooled, L2-normalized embedding vector.
 func (e *ONNXEmbedder) embedSingle(text string) ([]float32, error) {
 	// Tokenize with special tokens ([CLS], [SEP]).
-	ids, _ := e.tokenizer.Encode(text, true)
+	ids, _, err := e.tokenizer.EncodeErr(text, true)
+	if err != nil {
+		return nil, fmt.Errorf("onnx: tokenize: %w", err)
+	}
 
 	seqLen := len(ids)
 	if seqLen == 0 {

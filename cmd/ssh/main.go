@@ -121,7 +121,10 @@ func main() {
 
 	// Static file server for the website (toolshed.sh).
 	// Fly routes HTTP 80/443 → internal port 8080.
-	absWebRoot, _ := filepath.Abs(webRoot)
+	absWebRoot, err := filepath.Abs(webRoot)
+	if err != nil {
+		log.Fatalf("failed to resolve web root path: %v", err)
+	}
 	httpSrv := &http.Server{
 		Addr:    ":" + webPort,
 		Handler: http.FileServer(http.Dir(absWebRoot)),
@@ -202,7 +205,7 @@ func backfillEmbeddings(registry *dolt.Registry, emb embeddings.Embedder) {
 			continue
 		}
 
-		textHash := fmt.Sprintf("sha256:%x", sha256Hash([]byte(text)))
+		textHash := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(text)))
 
 		te := embeddings.ToolEmbedding{
 			ToolID:     tw.Listing.ID,
@@ -224,16 +227,11 @@ func backfillEmbeddings(registry *dolt.Registry, emb embeddings.Embedder) {
 	log.Printf("backfill: done — %d/%d tools embedded", count, len(tools))
 }
 
-// sha256Hash computes a SHA-256 hash.
-func sha256Hash(data []byte) [32]byte {
-	return sha256.Sum256(data)
-}
-
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
-	fmt.Printf("  env %s not set, using default: %s\n", key, fallback)
+	log.Printf("  env %s not set, using default: %s", key, fallback)
 	return fallback
 }
 

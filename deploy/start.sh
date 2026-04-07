@@ -22,6 +22,7 @@ if [ ! -d "$DATA_DIR/toolshed_registry/.dolt" ]; then
     dolt init --name 'ToolShed' --email 'toolshed@toolshed.sh'
     dolt sql < /schema/registry/001_init.sql
     dolt sql < /schema/registry/002_embeddings.sql
+    dolt sql < /schema/registry/003_upvote_constraints.sql
     dolt add .
     dolt commit -m "Initial registry schema"
     dolt sql < /schema/registry/seed.sql
@@ -79,6 +80,11 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
+if ! dolt --data-dir "$DATA_DIR" sql -q "SELECT 1" >/dev/null 2>&1; then
+    echo "==> ERROR: Dolt failed to start within 30 seconds"
+    exit 1
+fi
+
 # ---------------------------------------------------------------------------
 # Apply pending schema migrations (idempotent)
 # ---------------------------------------------------------------------------
@@ -90,8 +96,7 @@ echo "==> Applying pending schema migrations..."
 cd "$DATA_DIR/toolshed_registry"
 
 # 003: upvote constraints — unique index + covering index for budget checks
-dolt sql -q "CREATE UNIQUE INDEX idx_upvotes_key_invocation ON upvotes (key_fingerprint, invocation_id)" 2>/dev/null || true
-dolt sql -q "CREATE INDEX idx_upvotes_key_tool ON upvotes (key_fingerprint, tool_id)" 2>/dev/null || true
+dolt sql < /schema/registry/003_upvote_constraints.sql 2>/dev/null || true
 dolt add . 2>/dev/null || true
 dolt commit -m "Apply 003: upvote constraints" 2>/dev/null || true
 

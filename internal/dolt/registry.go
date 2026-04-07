@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -56,14 +57,7 @@ func NewRegistry(registryDSN, ledgerDSN string) (*Registry, error) {
 
 // Close closes both database connections.
 func (r *Registry) Close() error {
-	var firstErr error
-	if err := r.registry.Close(); err != nil {
-		firstErr = fmt.Errorf("dolt: close registry: %w", err)
-	}
-	if err := r.ledger.Close(); err != nil && firstErr == nil {
-		firstErr = fmt.Errorf("dolt: close ledger: %w", err)
-	}
-	return firstErr
+	return errors.Join(r.registry.Close(), r.ledger.Close())
 }
 
 // ---------------------------------------------------------------------------
@@ -127,7 +121,7 @@ func (r *Registry) GetAccount(ctx context.Context, fingerprint string) (*core.Ac
 		&acct.CreatedAt,
 		&acct.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -232,7 +226,7 @@ func (r *Registry) GetToolDefinition(ctx context.Context, contentHash string) (*
 		&capabilitiesRaw,
 		&def.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -320,6 +314,39 @@ func (r *Registry) RegisterToolListing(ctx context.Context, listing core.ToolLis
 	return nil
 }
 
+// scanner is satisfied by both *sql.Row and *sql.Rows, allowing a single
+// scan helper to be shared across QueryRow and Query result sets.
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+func scanToolListing(s scanner) (core.ToolListing, error) {
+	var (
+		listing                                       core.ToolListing
+		providerAccount, version, description, source sql.NullString
+		pricingRaw, paymentRaw                        []byte
+	)
+	if err := s.Scan(
+		&listing.ID, &listing.DefinitionHash, &providerAccount,
+		&listing.ProviderDomain, &listing.Name, &version,
+		&description, &pricingRaw, &paymentRaw, &source,
+		&listing.CreatedAt, &listing.UpdatedAt,
+	); err != nil {
+		return core.ToolListing{}, err
+	}
+	listing.ProviderAccount = providerAccount.String
+	listing.VersionLabel = version.String
+	listing.Description = description.String
+	listing.Source = source.String
+	if err := json.Unmarshal(pricingRaw, &listing.Pricing); err != nil {
+		return core.ToolListing{}, fmt.Errorf("unmarshal pricing: %w", err)
+	}
+	if err := json.Unmarshal(paymentRaw, &listing.Payment); err != nil {
+		return core.ToolListing{}, fmt.Errorf("unmarshal payment: %w", err)
+	}
+	return listing, nil
+}
+
 // GetToolListing fetches a single tool listing by ID.
 // Returns (nil, nil) if not found.
 func (r *Registry) GetToolListing(ctx context.Context, toolID string) (*core.ToolListing, error) {
@@ -330,47 +357,12 @@ func (r *Registry) GetToolListing(ctx context.Context, toolID string) (*core.Too
 		FROM tool_listings
 		WHERE id = ?`
 
-	var (
-		listing         core.ToolListing
-		providerAccount sql.NullString
-		version         sql.NullString
-		description     sql.NullString
-		source          sql.NullString
-		pricingRaw      []byte
-		paymentRaw      []byte
-	)
-
-	err := r.registry.QueryRowContext(ctx, query, toolID).Scan(
-		&listing.ID,
-		&listing.DefinitionHash,
-		&providerAccount,
-		&listing.ProviderDomain,
-		&listing.Name,
-		&version,
-		&description,
-		&pricingRaw,
-		&paymentRaw,
-		&source,
-		&listing.CreatedAt,
-		&listing.UpdatedAt,
-	)
-	if err == sql.ErrNoRows {
+	listing, err := scanToolListing(r.registry.QueryRowContext(ctx, query, toolID))
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("dolt: get tool listing %q: %w", toolID, err)
-	}
-
-	listing.ProviderAccount = providerAccount.String
-	listing.VersionLabel = version.String
-	listing.Description = description.String
-	listing.Source = source.String
-
-	if err := json.Unmarshal(pricingRaw, &listing.Pricing); err != nil {
-		return nil, fmt.Errorf("dolt: unmarshal pricing for %q: %w", toolID, err)
-	}
-	if err := json.Unmarshal(paymentRaw, &listing.Payment); err != nil {
-		return nil, fmt.Errorf("dolt: unmarshal payment for %q: %w", toolID, err)
 	}
 
 	return &listing, nil
@@ -402,45 +394,10 @@ func (r *Registry) SearchTools(ctx context.Context, query string) ([]core.ToolLi
 
 	var results []core.ToolListing
 	for rows.Next() {
-		var (
-			listing         core.ToolListing
-			providerAccount sql.NullString
-			version         sql.NullString
-			description     sql.NullString
-			source          sql.NullString
-			pricingRaw      []byte
-			paymentRaw      []byte
-		)
-
-		if err := rows.Scan(
-			&listing.ID,
-			&listing.DefinitionHash,
-			&providerAccount,
-			&listing.ProviderDomain,
-			&listing.Name,
-			&version,
-			&description,
-			&pricingRaw,
-			&paymentRaw,
-			&source,
-			&listing.CreatedAt,
-			&listing.UpdatedAt,
-		); err != nil {
+		listing, err := scanToolListing(rows)
+		if err != nil {
 			return nil, fmt.Errorf("dolt: scan search result: %w", err)
 		}
-
-		listing.ProviderAccount = providerAccount.String
-		listing.VersionLabel = version.String
-		listing.Description = description.String
-		listing.Source = source.String
-
-		if err := json.Unmarshal(pricingRaw, &listing.Pricing); err != nil {
-			return nil, fmt.Errorf("dolt: unmarshal pricing in search: %w", err)
-		}
-		if err := json.Unmarshal(paymentRaw, &listing.Payment); err != nil {
-			return nil, fmt.Errorf("dolt: unmarshal payment in search: %w", err)
-		}
-
 		results = append(results, listing)
 	}
 	if err := rows.Err(); err != nil {
@@ -468,45 +425,10 @@ func (r *Registry) ListToolsByProvider(ctx context.Context, providerDomain strin
 
 	var results []core.ToolListing
 	for rows.Next() {
-		var (
-			listing         core.ToolListing
-			providerAccount sql.NullString
-			version         sql.NullString
-			description     sql.NullString
-			source          sql.NullString
-			pricingRaw      []byte
-			paymentRaw      []byte
-		)
-
-		if err := rows.Scan(
-			&listing.ID,
-			&listing.DefinitionHash,
-			&providerAccount,
-			&listing.ProviderDomain,
-			&listing.Name,
-			&version,
-			&description,
-			&pricingRaw,
-			&paymentRaw,
-			&source,
-			&listing.CreatedAt,
-			&listing.UpdatedAt,
-		); err != nil {
+		listing, err := scanToolListing(rows)
+		if err != nil {
 			return nil, fmt.Errorf("dolt: scan provider listing: %w", err)
 		}
-
-		listing.ProviderAccount = providerAccount.String
-		listing.VersionLabel = version.String
-		listing.Description = description.String
-		listing.Source = source.String
-
-		if err := json.Unmarshal(pricingRaw, &listing.Pricing); err != nil {
-			return nil, fmt.Errorf("dolt: unmarshal pricing in provider list: %w", err)
-		}
-		if err := json.Unmarshal(paymentRaw, &listing.Payment); err != nil {
-			return nil, fmt.Errorf("dolt: unmarshal payment in provider list: %w", err)
-		}
-
 		results = append(results, listing)
 	}
 	if err := rows.Err(); err != nil {
@@ -544,7 +466,7 @@ func (r *Registry) GetReputation(ctx context.Context, toolID string) (*core.Repu
 		&trend,
 		&rep.ComputedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -614,6 +536,23 @@ func (r *Registry) WriteInvocation(ctx context.Context, inv core.InvocationRecor
 // key fingerprint and tool ID. This is used during upvote validation to
 // confirm that the caller actually invoked the tool before rating it.
 // Returns (nil, nil) if no matching record exists.
+func scanInvocationRecord(s scanner) (core.InvocationRecord, error) {
+	var (
+		inv        core.InvocationRecord
+		inputHash  sql.NullString
+		outputHash sql.NullString
+	)
+	if err := s.Scan(
+		&inv.ID, &inv.ToolID, &inv.DefinitionHash, &inv.KeyFingerprint,
+		&inputHash, &outputHash, &inv.LatencyMs, &inv.Success, &inv.CreatedAt,
+	); err != nil {
+		return core.InvocationRecord{}, err
+	}
+	inv.InputHash = inputHash.String
+	inv.OutputHash = outputHash.String
+	return inv, nil
+}
+
 func (r *Registry) GetInvocationByKeyAndTool(ctx context.Context, keyFingerprint, toolID string) (*core.InvocationRecord, error) {
 	const query = `
 		SELECT id, tool_id, definition_hash, key_fingerprint,
@@ -623,32 +562,13 @@ func (r *Registry) GetInvocationByKeyAndTool(ctx context.Context, keyFingerprint
 		ORDER BY created_at DESC
 		LIMIT 1`
 
-	var (
-		inv        core.InvocationRecord
-		inputHash  sql.NullString
-		outputHash sql.NullString
-	)
-
-	err := r.ledger.QueryRowContext(ctx, query, keyFingerprint, toolID).Scan(
-		&inv.ID,
-		&inv.ToolID,
-		&inv.DefinitionHash,
-		&inv.KeyFingerprint,
-		&inputHash,
-		&outputHash,
-		&inv.LatencyMs,
-		&inv.Success,
-		&inv.CreatedAt,
-	)
-	if err == sql.ErrNoRows {
+	inv, err := scanInvocationRecord(r.ledger.QueryRowContext(ctx, query, keyFingerprint, toolID))
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("dolt: get invocation by key %q tool %q: %w", keyFingerprint, toolID, err)
 	}
-
-	inv.InputHash = inputHash.String
-	inv.OutputHash = outputHash.String
 
 	return &inv, nil
 }
@@ -663,32 +583,13 @@ func (r *Registry) GetInvocationByID(ctx context.Context, invocationID, keyFinge
 		FROM invocations
 		WHERE id = ? AND key_fingerprint = ?`
 
-	var (
-		inv        core.InvocationRecord
-		inputHash  sql.NullString
-		outputHash sql.NullString
-	)
-
-	err := r.ledger.QueryRowContext(ctx, query, invocationID, keyFingerprint).Scan(
-		&inv.ID,
-		&inv.ToolID,
-		&inv.DefinitionHash,
-		&inv.KeyFingerprint,
-		&inputHash,
-		&outputHash,
-		&inv.LatencyMs,
-		&inv.Success,
-		&inv.CreatedAt,
-	)
-	if err == sql.ErrNoRows {
+	inv, err := scanInvocationRecord(r.ledger.QueryRowContext(ctx, query, invocationID, keyFingerprint))
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("dolt: get invocation %q for key %q: %w", invocationID, keyFingerprint, err)
 	}
-
-	inv.InputHash = inputHash.String
-	inv.OutputHash = outputHash.String
 
 	return &inv, nil
 }
@@ -707,7 +608,7 @@ func (r *Registry) GetInvocationLedgerCommit(ctx context.Context, invocationID s
 
 	var hash string
 	err := r.ledger.QueryRowContext(ctx, query, pattern).Scan(&hash)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
 	if err != nil {
@@ -820,7 +721,7 @@ func (r *Registry) RecomputeReputation(ctx context.Context, toolID string) error
 	const aggQuery = `
 		SELECT
 			COUNT(*) as total_upvotes,
-			COUNT(*) as verified_upvotes,
+			COUNT(CASE WHEN invocation_id IS NOT NULL THEN 1 END) as verified_upvotes,
 			AVG(quality_score) as avg_quality,
 			COUNT(DISTINCT key_fingerprint) as unique_callers
 		FROM upvotes
@@ -971,13 +872,10 @@ func (r *Registry) GetToolListingsByIDs(ctx context.Context, ids []string) ([]co
 	}
 
 	// Build a query with placeholders for each ID.
-	placeholders := ""
+	placeholders := strings.Repeat("?,", len(ids))
+	placeholders = placeholders[:len(placeholders)-1]
 	args := make([]interface{}, len(ids))
 	for i, id := range ids {
-		if i > 0 {
-			placeholders += ", "
-		}
-		placeholders += "?"
 		args[i] = id
 	}
 
@@ -996,45 +894,10 @@ func (r *Registry) GetToolListingsByIDs(ctx context.Context, ids []string) ([]co
 
 	var results []core.ToolListing
 	for rows.Next() {
-		var (
-			listing         core.ToolListing
-			providerAccount sql.NullString
-			version         sql.NullString
-			description     sql.NullString
-			source          sql.NullString
-			pricingRaw      []byte
-			paymentRaw      []byte
-		)
-
-		if err := rows.Scan(
-			&listing.ID,
-			&listing.DefinitionHash,
-			&providerAccount,
-			&listing.ProviderDomain,
-			&listing.Name,
-			&version,
-			&description,
-			&pricingRaw,
-			&paymentRaw,
-			&source,
-			&listing.CreatedAt,
-			&listing.UpdatedAt,
-		); err != nil {
+		listing, err := scanToolListing(rows)
+		if err != nil {
 			return nil, fmt.Errorf("dolt: scan listing by id: %w", err)
 		}
-
-		listing.ProviderAccount = providerAccount.String
-		listing.VersionLabel = version.String
-		listing.Description = description.String
-		listing.Source = source.String
-
-		if err := json.Unmarshal(pricingRaw, &listing.Pricing); err != nil {
-			return nil, fmt.Errorf("dolt: unmarshal pricing: %w", err)
-		}
-		if err := json.Unmarshal(paymentRaw, &listing.Payment); err != nil {
-			return nil, fmt.Errorf("dolt: unmarshal payment: %w", err)
-		}
-
 		results = append(results, listing)
 	}
 	if err := rows.Err(); err != nil {

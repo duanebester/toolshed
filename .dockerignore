@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.md
+README*
+LICENSE*
+.ssh/
+docker-compose.yml
+fly.toml
+scripts/
+**/*_test.go

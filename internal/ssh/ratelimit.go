@@ -100,8 +100,9 @@ type ConnLimiter struct {
 	// Total active connections across all IPs.
 	totalActive int
 
-	cfg  HardenConfig
-	done chan struct{}
+	closeOnce sync.Once
+	cfg       HardenConfig
+	done      chan struct{}
 }
 
 // NewConnLimiter creates a connection limiter and starts a background
@@ -158,7 +159,7 @@ func (cl *ConnLimiter) Allow(ip string) bool {
 	hist := cl.history[ip]
 
 	// Trim timestamps outside the window.
-	trimmed := make([]time.Time, 0, len(hist))
+	trimmed := hist[:0]
 	for _, t := range hist {
 		if t.After(cutoff) {
 			trimmed = append(trimmed, t)
@@ -227,7 +228,7 @@ type LimiterStats struct {
 
 // Close stops the background cleanup goroutine.
 func (cl *ConnLimiter) Close() {
-	close(cl.done)
+	cl.closeOnce.Do(func() { close(cl.done) })
 }
 
 // recordViolation increments the violation counter for ip and auto-bans

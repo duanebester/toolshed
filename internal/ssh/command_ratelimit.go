@@ -56,8 +56,9 @@ type CommandRateLimiter struct {
 	// periodically purged by the background cleanup goroutine.
 	history map[string][]time.Time
 
-	cfg  CommandLimitConfig
-	done chan struct{}
+	cfg       CommandLimitConfig
+	closeOnce sync.Once
+	done      chan struct{}
 }
 
 // NewCommandRateLimiter creates a command rate limiter and starts a background
@@ -94,7 +95,7 @@ func (cl *CommandRateLimiter) Allow(fingerprint, command string) bool {
 
 	// Trim timestamps outside the current window.
 	hist := cl.history[key]
-	trimmed := make([]time.Time, 0, len(hist))
+	trimmed := hist[:0]
 	for _, t := range hist {
 		if t.After(cutoff) {
 			trimmed = append(trimmed, t)
@@ -116,7 +117,7 @@ func (cl *CommandRateLimiter) Allow(fingerprint, command string) bool {
 
 // Close stops the background cleanup goroutine.
 func (cl *CommandRateLimiter) Close() {
-	close(cl.done)
+	cl.closeOnce.Do(func() { close(cl.done) })
 }
 
 // ---------------------------------------------------------------------------
