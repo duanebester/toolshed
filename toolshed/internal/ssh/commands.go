@@ -9,12 +9,13 @@
 //	ssh toolshed.sh upvote acme.com/fraud-detection --quality 5 --useful --comment "great"
 //	ssh toolshed.sh verify acme.com
 //
-// All successful output is YAML written to stdout. Errors go to stderr.
+// All successful output is compact JSON written to stdout. Errors go to stderr.
 package ssh
 
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -73,17 +74,17 @@ func (d *CommandDispatcher) Dispatch(sess ssh.Session, cmd []string) {
 }
 
 type helpResponse struct {
-	Version     string        `yaml:"version"`
-	Description string        `yaml:"description"`
-	Commands    []helpCommand `yaml:"commands"`
-	Interactive string        `yaml:"interactive"`
+	Version     string        `json:"version" yaml:"version"`
+	Description string        `json:"description" yaml:"description"`
+	Commands    []helpCommand `json:"commands" yaml:"commands"`
+	Interactive string        `json:"interactive" yaml:"interactive"`
 }
 
 type helpCommand struct {
-	Name        string   `yaml:"name"`
-	Usage       string   `yaml:"usage"`
-	Description string   `yaml:"description"`
-	Examples    []string `yaml:"examples"`
+	Name        string   `json:"name" yaml:"name"`
+	Usage       string   `json:"usage" yaml:"usage"`
+	Description string   `json:"description" yaml:"description"`
+	Examples    []string `json:"examples" yaml:"examples"`
 }
 
 func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
@@ -163,13 +164,14 @@ func (d *CommandDispatcher) handleHelp(sess ssh.Session, args []string) {
 		Interactive: "Connect without a command for the interactive browser: ssh toolshed.sh",
 	}
 
-	data, err := core.MarshalYAML(resp)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
 		return
 	}
 
 	sess.Write(data)
+	sess.Write([]byte("\n"))
 }
 
 // ---------------------------------------------------------------------------
@@ -215,13 +217,14 @@ func (d *CommandDispatcher) handleSearch(sess ssh.Session, args []string) {
 		Total:   len(results),
 	}
 
-	data, err := core.MarshalYAML(resp)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal results: %v\n", err)
 		return
 	}
 
 	sess.Write(data)
+	sess.Write([]byte("\n"))
 }
 
 // semanticSearch performs embedding-based semantic search. Returns nil if
@@ -341,20 +344,20 @@ func (d *CommandDispatcher) buildSearchResult(sess ssh.Session, listing core.Too
 // toolInfoResponse is the full detail view returned by the info command.
 // It combines the listing, definition, and reputation into a single YAML doc.
 type toolInfoResponse struct {
-	ID             string            `yaml:"id"`
-	Name           string            `yaml:"name"`
-	Description    string            `yaml:"description,omitempty"`
-	VersionLabel   string            `yaml:"version_label,omitempty"`
-	DefinitionHash string            `yaml:"definition_hash"`
-	Provider       core.ProviderInfo `yaml:"provider"`
-	Capabilities   []string          `yaml:"capabilities,omitempty"`
-	Invoke         core.Invocation   `yaml:"invoke"`
-	Schema         core.Schema       `yaml:"schema"`
-	Pricing        core.Pricing      `yaml:"pricing"`
-	Payment        core.Payment      `yaml:"payment,omitempty"`
-	Reputation     *core.Reputation  `yaml:"reputation,omitempty"`
-	CreatedAt      time.Time         `yaml:"created_at"`
-	UpdatedAt      time.Time         `yaml:"updated_at"`
+	ID             string            `json:"id" yaml:"id"`
+	Name           string            `json:"name" yaml:"name"`
+	Description    string            `json:"description,omitempty" yaml:"description,omitempty"`
+	VersionLabel   string            `json:"version_label,omitempty" yaml:"version_label,omitempty"`
+	DefinitionHash string            `json:"definition_hash" yaml:"definition_hash"`
+	Provider       core.ProviderInfo `json:"provider" yaml:"provider"`
+	Capabilities   []string          `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
+	Invoke         core.Invocation   `json:"invoke" yaml:"invoke"`
+	Schema         core.Schema       `json:"schema" yaml:"schema"`
+	Pricing        core.Pricing      `json:"pricing" yaml:"pricing"`
+	Payment        core.Payment      `json:"payment,omitempty" yaml:"payment,omitempty"`
+	Reputation     *core.Reputation  `json:"reputation,omitempty" yaml:"reputation,omitempty"`
+	CreatedAt      time.Time         `json:"created_at" yaml:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at" yaml:"updated_at"`
 }
 
 func (d *CommandDispatcher) handleInfo(sess ssh.Session, args []string) {
@@ -423,13 +426,14 @@ func (d *CommandDispatcher) handleInfo(sess ssh.Session, args []string) {
 		resp.Provider.Verified = acct.DomainVerified
 	}
 
-	data, err := core.MarshalYAML(resp)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal tool info: %v\n", err)
 		return
 	}
 
 	sess.Write(data)
+	sess.Write([]byte("\n"))
 }
 
 // ---------------------------------------------------------------------------
@@ -438,14 +442,14 @@ func (d *CommandDispatcher) handleInfo(sess ssh.Session, args []string) {
 
 // registerResponse is returned after successful tool registration.
 type registerResponse struct {
-	Registered []registeredTool `yaml:"registered"`
-	Total      int              `yaml:"total"`
+	Registered []registeredTool `json:"registered" yaml:"registered"`
+	Total      int              `json:"total" yaml:"total"`
 }
 
 type registeredTool struct {
-	ID             string `yaml:"id"`
-	Name           string `yaml:"name"`
-	DefinitionHash string `yaml:"definition_hash"`
+	ID             string `json:"id" yaml:"id"`
+	Name           string `json:"name" yaml:"name"`
+	DefinitionHash string `json:"definition_hash" yaml:"definition_hash"`
 }
 
 func (d *CommandDispatcher) handleRegister(sess ssh.Session, args []string) {
@@ -510,13 +514,14 @@ func (d *CommandDispatcher) handleRegister(sess ssh.Session, args []string) {
 		Total:      len(registered),
 	}
 
-	out, err := core.MarshalYAML(resp)
+	out, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
 		return
 	}
 
 	sess.Write(out)
+	sess.Write([]byte("\n"))
 }
 
 // generateEmbedding creates and stores an embedding for a tool. This runs
@@ -560,11 +565,11 @@ func (d *CommandDispatcher) generateEmbedding(listing core.ToolListing, def core
 
 // reportResponse is returned after a successful invocation report.
 type reportResponse struct {
-	InvocationID   string `yaml:"invocation_id"`
-	ToolID         string `yaml:"tool_id"`
-	DefinitionHash string `yaml:"definition_hash"`
-	Success        bool   `yaml:"success"`
-	RecordedAt     string `yaml:"recorded_at"`
+	InvocationID   string `json:"invocation_id" yaml:"invocation_id"`
+	ToolID         string `json:"tool_id" yaml:"tool_id"`
+	DefinitionHash string `json:"definition_hash" yaml:"definition_hash"`
+	Success        bool   `json:"success" yaml:"success"`
+	RecordedAt     string `json:"recorded_at" yaml:"recorded_at"`
 }
 
 func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
@@ -649,13 +654,14 @@ func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
 		RecordedAt:     now.Format(time.RFC3339),
 	}
 
-	data, err := core.MarshalYAML(resp)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
 		return
 	}
 
 	sess.Write(data)
+	sess.Write([]byte("\n"))
 }
 
 // ---------------------------------------------------------------------------
@@ -664,11 +670,11 @@ func (d *CommandDispatcher) handleReport(sess ssh.Session, args []string) {
 
 // upvoteResponse is returned after a successful upvote.
 type upvoteResponse struct {
-	UpvoteID     string `yaml:"upvote_id"`
-	ToolID       string `yaml:"tool_id"`
-	InvocationID string `yaml:"invocation_id"`
-	Quality      int    `yaml:"quality"`
-	RecordedAt   string `yaml:"recorded_at"`
+	UpvoteID     string `json:"upvote_id" yaml:"upvote_id"`
+	ToolID       string `json:"tool_id" yaml:"tool_id"`
+	InvocationID string `json:"invocation_id" yaml:"invocation_id"`
+	Quality      int    `json:"quality" yaml:"quality"`
+	RecordedAt   string `json:"recorded_at" yaml:"recorded_at"`
 }
 
 func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
@@ -750,13 +756,14 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 		RecordedAt:   now.Format(time.RFC3339),
 	}
 
-	data, err := core.MarshalYAML(resp)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
 		return
 	}
 
 	sess.Write(data)
+	sess.Write([]byte("\n"))
 }
 
 // ---------------------------------------------------------------------------
@@ -765,23 +772,23 @@ func (d *CommandDispatcher) handleUpvote(sess ssh.Session, args []string) {
 
 // verifyResponse shows DNS TXT record instructions for domain verification.
 type verifyResponse struct {
-	Domain       string          `yaml:"domain"`
-	Fingerprint  string          `yaml:"fingerprint"`
-	Status       string          `yaml:"status"`
-	Instructions verifySteps     `yaml:"instructions"`
-	DNSRecord    verifyDNSRecord `yaml:"dns_record"`
+	Domain       string          `json:"domain" yaml:"domain"`
+	Fingerprint  string          `json:"fingerprint" yaml:"fingerprint"`
+	Status       string          `json:"status" yaml:"status"`
+	Instructions verifySteps     `json:"instructions" yaml:"instructions"`
+	DNSRecord    verifyDNSRecord `json:"dns_record" yaml:"dns_record"`
 }
 
 type verifySteps struct {
-	Step1 string `yaml:"step_1"`
-	Step2 string `yaml:"step_2"`
-	Step3 string `yaml:"step_3"`
+	Step1 string `json:"step_1" yaml:"step_1"`
+	Step2 string `json:"step_2" yaml:"step_2"`
+	Step3 string `json:"step_3" yaml:"step_3"`
 }
 
 type verifyDNSRecord struct {
-	Type  string `yaml:"type"`
-	Name  string `yaml:"name"`
-	Value string `yaml:"value"`
+	Type  string `json:"type" yaml:"type"`
+	Name  string `json:"name" yaml:"name"`
+	Value string `json:"value" yaml:"value"`
 }
 
 func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
@@ -822,13 +829,14 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 		resp.Status = "verified"
 	}
 
-	data, err := core.MarshalYAML(resp)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess.Stderr(), "error: failed to marshal response: %v\n", err)
 		return
 	}
 
 	sess.Write(data)
+	sess.Write([]byte("\n"))
 }
 
 // ---------------------------------------------------------------------------
@@ -836,18 +844,18 @@ func (d *CommandDispatcher) handleVerify(sess ssh.Session, args []string) {
 // ---------------------------------------------------------------------------
 
 type crawlResponse struct {
-	Domain    string        `yaml:"domain"`
-	URL       string        `yaml:"url"`
-	Tools     []crawledTool `yaml:"tools"`
-	Total     int           `yaml:"total"`
-	CrawledAt string        `yaml:"crawled_at"`
+	Domain    string        `json:"domain" yaml:"domain"`
+	URL       string        `json:"url" yaml:"url"`
+	Tools     []crawledTool `json:"tools" yaml:"tools"`
+	Total     int           `json:"total" yaml:"total"`
+	CrawledAt string        `json:"crawled_at" yaml:"crawled_at"`
 }
 
 type crawledTool struct {
-	ID             string `yaml:"id"`
-	Name           string `yaml:"name"`
-	DefinitionHash string `yaml:"definition_hash"`
-	Status         string `yaml:"status"`
+	ID             string `json:"id" yaml:"id"`
+	Name           string `json:"name" yaml:"name"`
+	DefinitionHash string `json:"definition_hash" yaml:"definition_hash"`
+	Status         string `json:"status" yaml:"status"`
 }
 
 func (d *CommandDispatcher) handleCrawl(sess ssh.Session, args []string) {
@@ -899,13 +907,14 @@ func (d *CommandDispatcher) handleCrawl(sess ssh.Session, args []string) {
 		CrawledAt: result.CrawledAt.Format(time.RFC3339),
 	}
 
-	out, err := core.MarshalYAML(resp)
+	out, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Fprintf(sess, "error: failed to marshal response: %v\n", err)
 		return
 	}
 
 	sess.Write(out)
+	sess.Write([]byte("\n"))
 
 	log.Printf("ssh: crawled %s — indexed %d tools", domain, result.Total)
 }
