@@ -16,6 +16,19 @@ import (
 	"github.com/toolshed/toolshed/internal/embeddings"
 )
 
+// escapeLIKE escapes the SQL LIKE wildcard characters % and _ so that
+// user-supplied search terms are matched literally. The escaped value
+// uses backslash as the escape character, which is the default for MySQL
+// (and therefore Dolt).
+var likeSanitizer = strings.NewReplacer(
+	`%`, `\%`,
+	`_`, `\_`,
+)
+
+func escapeLIKE(s string) string {
+	return likeSanitizer.Replace(s)
+}
+
 // ErrDuplicateUpvote is returned when a key tries to upvote the same
 // invocation more than once (violates the UNIQUE constraint on
 // upvotes(key_fingerprint, invocation_id)).
@@ -384,7 +397,7 @@ func (r *Registry) SearchTools(ctx context.Context, query string) ([]core.ToolLi
 		   OR td.capabilities_json LIKE ?
 		ORDER BY tl.name`
 
-	pattern := "%" + query + "%"
+	pattern := "%" + escapeLIKE(query) + "%"
 
 	rows, err := r.registry.QueryContext(ctx, stmt, pattern, pattern, pattern)
 	if err != nil {
@@ -486,11 +499,21 @@ func (r *Registry) GetReputation(ctx context.Context, toolID string) (*core.Repu
 // database connection, returning the commit hash. This makes the write visible
 // in the Dolt commit log and captures the hash for audit / tamper evidence.
 func (r *Registry) doltCommit(ctx context.Context, db *sql.DB, table, message string) (string, error) {
-	if _, err := db.ExecContext(ctx, "CALL DOLT_ADD(?)", table); err != nil {
+	// Pin both DOLT_ADD and DOLT_COMMIT to the same connection.
+	// Dolt's staging area is per-session, so using the connection pool
+	// directly could dispatch the two calls to different connections,
+	// resulting in empty or incorrect commits.
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return "", fmt.Errorf("dolt: acquire conn: %w", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(ctx, "CALL DOLT_ADD(?)", table); err != nil {
 		return "", fmt.Errorf("dolt: add %q: %w", table, err)
 	}
 	var hash string
-	err := db.QueryRowContext(ctx, "CALL DOLT_COMMIT('-m', ?)", message).Scan(&hash)
+	err = conn.QueryRowContext(ctx, "CALL DOLT_COMMIT('-m', ?)", message).Scan(&hash)
 	if err != nil {
 		return "", fmt.Errorf("dolt: commit %q: %w", message, err)
 	}
@@ -866,6 +889,10 @@ func (r *Registry) GetAllEmbeddings(ctx context.Context) ([]embeddings.ToolEmbed
 
 // GetToolListingsByIDs fetches multiple tool listings by their IDs. This is
 // used to hydrate semantic search results (which only have tool IDs + scores).
+//
+// NOTE: The returned slice is NOT ordered to match the input `ids` slice.
+// Callers that care about ordering (e.g. preserving similarity ranking)
+// must re-sort the results themselves.
 func (r *Registry) GetToolListingsByIDs(ctx context.Context, ids []string) ([]core.ToolListing, error) {
 	if len(ids) == 0 {
 		return nil, nil

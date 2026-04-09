@@ -126,8 +126,11 @@ func main() {
 		log.Fatalf("failed to resolve web root path: %v", err)
 	}
 	httpSrv := &http.Server{
-		Addr:    ":" + webPort,
-		Handler: http.FileServer(http.Dir(absWebRoot)),
+		Addr:         ":" + webPort,
+		Handler:      http.FileServer(http.Dir(absWebRoot)),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 	go func() {
 		log.Printf("http: serving %s on :%s", absWebRoot, webPort)

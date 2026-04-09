@@ -1141,7 +1141,7 @@ func (d *CommandDispatcher) handleCrawl(sess ssh.Session, args []string) {
 	defer cancel()
 
 	log.Printf("ssh: crawl %s requested by %s", domain, d.fingerprint)
-	fmt.Fprintf(sess, "crawling https://%s/.well-known/toolshed.yaml ...\n", domain)
+	fmt.Fprintf(sess.Stderr(), "crawling https://%s/.well-known/toolshed.yaml ...\n", domain)
 
 	result, err := crawl.CrawlDomain(ctx, domain, d.registry, d.fingerprint)
 	if err != nil {

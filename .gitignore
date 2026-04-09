@@ -20,3 +20,13 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# ONNX Runtime shared libraries (downloaded by setup-embeddings.sh)
+lib/
+
+# Model weights (downloaded by setup-embeddings.sh / download-model.sh)
+models/
+
+# Environment files — may contain secrets
+.env
+.env.*

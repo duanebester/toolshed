@@ -8,3 +8,11 @@ docker-compose.yml
 fly.toml
 scripts/
 **/*_test.go
+
+# Large binary artifacts (ONNX model + runtime) — downloaded by setup-embeddings.sh
+models/
+lib/
+
+# Environment files may contain secrets (DSNs, API keys, etc.)
+.env
+.env.*

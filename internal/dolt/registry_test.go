@@ -532,6 +532,25 @@ func TestSearchTools(t *testing.T) {
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for nonsense query, got %d", len(results))
 	}
+
+	// ----- Wildcard escaping -----
+	// A bare "%" should NOT act as a SQL wildcard that dumps all rows.
+	results, err = reg.SearchTools(ctx, "%")
+	if err != nil {
+		t.Fatalf("SearchTools(%%): %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for literal '%%' query, got %d (LIKE wildcards not escaped?)", len(results))
+	}
+
+	// A bare "_" should NOT match any single character.
+	results, err = reg.SearchTools(ctx, "_")
+	if err != nil {
+		t.Fatalf("SearchTools(_): %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for literal '_' query, got %d (LIKE wildcards not escaped?)", len(results))
+	}
 }
 
 func TestListToolsByProvider(t *testing.T) {

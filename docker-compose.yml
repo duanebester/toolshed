@@ -40,6 +40,7 @@ services:
           dolt init --name 'ToolShed' --email 'toolshed@localhost'
           dolt sql < /schema/registry/001_init.sql
           dolt sql < /schema/registry/002_embeddings.sql
+          dolt sql < /schema/registry/003_upvote_constraints.sql
           dolt add .
           dolt commit -m "Initial registry schema"
           dolt sql < /schema/registry/seed.sql

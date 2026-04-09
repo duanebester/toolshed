@@ -24,8 +24,17 @@ import (
 	"time"
 
 	"github.com/toolshed/toolshed/internal/core"
-	"github.com/toolshed/toolshed/internal/dolt"
 )
+
+// NOTE: Tool definition/listing construction is handled by
+// core.ConvertToRecordsWithSource — do NOT duplicate that logic here.
+
+// ToolStore is the subset of the registry that CrawlDomain needs. The
+// production implementation is *dolt.Registry; tests can supply a mock.
+type ToolStore interface {
+	RegisterToolDefinition(ctx context.Context, def core.ToolDefinition) error
+	RegisterToolListing(ctx context.Context, listing core.ToolListing) error
+}
 
 // maxResponseBytes is the upper bound on how many bytes we'll read from
 // a provider's toolshed.yaml. 1 MB is more than enough for any
@@ -70,10 +79,26 @@ type CrawledTool struct {
 // should own the resulting records. For crawler-initiated crawls this is
 // typically a system account; for user-initiated crawls it is the user's
 // key fingerprint.
-func CrawlDomain(ctx context.Context, domain string, registry *dolt.Registry, providerAccount string) (*CrawlResult, error) {
+func CrawlDomain(ctx context.Context, domain string, store ToolStore, providerAccount string) (*CrawlResult, error) {
 	url := "https://" + domain + wellKnownPath
 
 	// ----- 1. Fetch the manifest -----
+	body, err := fetchManifest(ctx, domain, url)
+	if err != nil {
+		return nil, err
+	}
+
+	// ----- 2. Parse, validate, and upsert -----
+	return processCrawledManifest(ctx, domain, url, body, store, providerAccount)
+}
+
+// ---------------------------------------------------------------------------
+// fetchManifest
+// ---------------------------------------------------------------------------
+
+// fetchManifest performs the HTTP GET for the well-known manifest URL,
+// enforcing a response-body cap of maxResponseBytes.
+func fetchManifest(ctx context.Context, domain, url string) ([]byte, error) {
 	client := &http.Client{Timeout: httpTimeout}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -93,19 +118,37 @@ func CrawlDomain(ctx context.Context, domain string, registry *dolt.Registry, pr
 		return nil, fmt.Errorf("crawl %s: HTTP %d from %s", domain, resp.StatusCode, url)
 	}
 
-	// ----- 2. Read body (capped at 1 MB) -----
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return nil, fmt.Errorf("crawl %s: read response body: %w", domain, err)
 	}
 
-	// ----- 3. Parse the provider file -----
+	return body, nil
+}
+
+// ---------------------------------------------------------------------------
+// processCrawledManifest
+// ---------------------------------------------------------------------------
+
+// processCrawledManifest is the core crawl pipeline: parse, validate domain,
+// convert to records, and upsert into the store. It is separated from the
+// HTTP layer so that it can be unit-tested with a mock ToolStore.
+func processCrawledManifest(
+	ctx context.Context,
+	domain string,
+	url string,
+	body []byte,
+	store ToolStore,
+	providerAccount string,
+) (*CrawlResult, error) {
+
+	// ----- 1. Parse the provider file -----
 	pf, err := core.ParseProviderFileFromBytes(body)
 	if err != nil {
 		return nil, fmt.Errorf("crawl %s: parse toolshed.yaml: %w", domain, err)
 	}
 
-	// ----- 4. Security: domain must match -----
+	// ----- 2. Security: domain must match -----
 	if pf.Provider.Domain != domain {
 		return nil, fmt.Errorf(
 			"crawl %s: domain mismatch — manifest declares provider.domain=%q but was fetched from %q",
@@ -113,70 +156,38 @@ func CrawlDomain(ctx context.Context, domain string, registry *dolt.Registry, pr
 		)
 	}
 
-	// ----- 5. Process each tool -----
+	// ----- 3. Convert to records using shared logic -----
+	// Delegates to ConvertToRecordsWithSource so that ToolDefinition and
+	// ToolListing construction is defined in exactly one place.
+	defs, listings, err := core.ConvertToRecordsWithSource(pf, providerAccount, "crawl")
+	if err != nil {
+		return nil, fmt.Errorf("crawl %s: %w", domain, err)
+	}
+
+	// ----- 4. Upsert each tool into the store -----
 	now := time.Now().UTC()
-	crawled := make([]CrawledTool, 0, len(pf.Tools))
+	crawled := make([]CrawledTool, 0, len(defs))
 
-	for _, entry := range pf.Tools {
-		// 5a. Build the immutable ToolDefinition.
-		def := core.ToolDefinition{
-			Provider: core.Provider{
-				Domain:  pf.Provider.Domain,
-				Contact: providerAccount,
-			},
-			Schema:       entry.Schema,
-			Invocation:   entry.Invoke,
-			Capabilities: entry.Capabilities,
-			CreatedAt:    now,
+	for i, def := range defs {
+		listing := listings[i]
+
+		// Upsert definition (INSERT IGNORE — idempotent).
+		if err := store.RegisterToolDefinition(ctx, def); err != nil {
+			return nil, fmt.Errorf("crawl %s: register definition for tool %q: %w", domain, listing.Name, err)
 		}
 
-		// 5b. Compute content hash.
-		hash, err := core.ContentHash(def)
-		if err != nil {
-			return nil, fmt.Errorf("crawl %s: content hash for tool %q: %w", domain, entry.Name, err)
-		}
-		def.ContentHash = hash
-
-		// 5c. Default pricing model to "free" if not specified.
-		pricing := entry.Pricing
-		if pricing.Model == "" {
-			pricing.Model = "free"
+		// Upsert listing (ON DUPLICATE KEY UPDATE).
+		if err := store.RegisterToolListing(ctx, listing); err != nil {
+			return nil, fmt.Errorf("crawl %s: register listing for tool %q: %w", domain, listing.Name, err)
 		}
 
-		// 5e. Build the mutable ToolListing.
-		toolID := core.ToolID(domain, entry.Name)
-		listing := core.ToolListing{
-			ID:              toolID,
-			DefinitionHash:  hash,
-			ProviderAccount: providerAccount,
-			ProviderDomain:  pf.Provider.Domain,
-			Name:            entry.Name,
-			VersionLabel:    entry.Version,
-			Description:     entry.Description,
-			Pricing:         pricing,
-			Payment:         entry.Payment,
-			Source:          "crawl",
-			CreatedAt:       now,
-			UpdatedAt:       now,
-		}
-
-		// 5f. Upsert definition (INSERT IGNORE — idempotent).
-		if err := registry.RegisterToolDefinition(ctx, def); err != nil {
-			return nil, fmt.Errorf("crawl %s: register definition for tool %q: %w", domain, entry.Name, err)
-		}
-
-		// 5g. Upsert listing (ON DUPLICATE KEY UPDATE).
-		if err := registry.RegisterToolListing(ctx, listing); err != nil {
-			return nil, fmt.Errorf("crawl %s: register listing for tool %q: %w", domain, entry.Name, err)
-		}
-
-		// 5h. Record result. We say "indexed" because distinguishing
+		// Record result. We say "indexed" because distinguishing
 		// new/updated/unchanged would require an extra SELECT before
 		// the upsert — not worth the cost for a best-effort status.
 		crawled = append(crawled, CrawledTool{
-			ID:             toolID,
-			Name:           entry.Name,
-			DefinitionHash: hash,
+			ID:             listing.ID,
+			Name:           listing.Name,
+			DefinitionHash: def.ContentHash,
 			Status:         "indexed",
 		})
 	}

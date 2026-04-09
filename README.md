@@ -21,24 +21,25 @@ TCP → PROXY protocol (Fly.io) → Rate limiter → SSH handshake → Command d
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `search <query>` | Search tools by name, description, or capability |
-| `info <tool_id>` | Full details for a specific tool |
-| `report --tool <id> --latency <ms> --success` | Submit an invocation report |
-| `upvote <tool_id> --quality <1-5>` | Submit a quality review |
-| `verify <domain>` | DNS verification for domain ownership |
-| `crawl <domain>` | Index tools from `/.well-known/toolshed.yaml` |
-| `audit <tool_id>` | View Dolt commit history for a tool |
-| `reputation <tool_id>` | View computed reputation score |
-| `help` | Show all commands |
+| Command                                       | Description                                      |
+| --------------------------------------------- | ------------------------------------------------ |
+| `search <query>`                              | Search tools by name, description, or capability |
+| `info <tool_id>`                              | Full details for a specific tool                 |
+| `report --tool <id> --latency <ms> --success` | Submit an invocation report                      |
+| `upvote <tool_id> --quality <1-5>`            | Submit a quality review                          |
+| `verify <domain>`                             | DNS verification for domain ownership            |
+| `crawl <domain>`                              | Index tools from `/.well-known/toolshed.yaml`    |
+| `audit <tool_id>`                             | View Dolt commit history for a tool              |
+| `reputation <tool_id>`                        | View computed reputation score                   |
+| `help`                                        | Show all commands                                |
 
 ## Local Development
 
 ### Prerequisites
 
 - Go 1.26+
-- [Dolt](https://github.com/dolthub/dolt) (`curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash`)
+- [Docker](https://docs.docker.com/get-docker/) (recommended for running Dolt locally)
+- [Dolt](https://github.com/dolthub/dolt) (only needed if running Dolt without Docker)
 - C compiler (Xcode Command Line Tools on macOS, `build-essential` on Linux)
 
 ### Native Libraries
@@ -50,6 +51,7 @@ The project depends on two C libraries that must be installed locally for `go bu
 Required by `github.com/daulet/tokenizers`. Provides the fast Rust-based tokenizer via C FFI.
 
 **macOS arm64:**
+
 ```sh
 curl -fSL "https://github.com/daulet/tokenizers/releases/download/v1.27.0/libtokenizers.darwin-arm64.tar.gz" \
   | tar xz -C /tmp
@@ -57,6 +59,7 @@ sudo cp /tmp/libtokenizers.a /usr/local/lib/
 ```
 
 **macOS amd64:**
+
 ```sh
 curl -fSL "https://github.com/daulet/tokenizers/releases/download/v1.27.0/libtokenizers.darwin-amd64.tar.gz" \
   | tar xz -C /tmp
@@ -64,6 +67,7 @@ sudo cp /tmp/libtokenizers.a /usr/local/lib/
 ```
 
 **Linux amd64:**
+
 ```sh
 curl -fSL "https://github.com/daulet/tokenizers/releases/download/v1.27.0/libtokenizers.linux-amd64.tar.gz" \
   | tar xz -C /usr/local/lib/
@@ -74,6 +78,7 @@ curl -fSL "https://github.com/daulet/tokenizers/releases/download/v1.27.0/libtok
 Required by `github.com/yalue/onnxruntime_go`. Provides local neural network inference for semantic search embeddings.
 
 **macOS arm64:**
+
 ```sh
 curl -fSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-osx-arm64-1.24.4.tgz" \
   | tar xz -C /tmp
@@ -82,6 +87,7 @@ sudo ln -sf libonnxruntime.1.24.4.dylib /usr/local/lib/libonnxruntime.dylib
 ```
 
 **macOS amd64:**
+
 ```sh
 curl -fSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-osx-x86_64-1.24.4.tgz" \
   | tar xz -C /tmp
@@ -90,6 +96,7 @@ sudo ln -sf libonnxruntime.1.24.4.dylib /usr/local/lib/libonnxruntime.dylib
 ```
 
 **Linux amd64:**
+
 ```sh
 curl -fSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz" \
   | tar xz -C /tmp
@@ -120,15 +127,29 @@ go build -o wordcount ./cmd/wordcount
 1. **Start Dolt** with the registry and ledger databases:
 
 ```sh
-# Initialize databases (first time only)
+# Recommended: use docker-compose (handles all schema migrations + seed data)
+docker compose up -d
+```
+
+<details>
+<summary>Alternative: manual Dolt setup (without Docker)</summary>
+
+```sh
 mkdir -p /tmp/dolt-data/toolshed_registry /tmp/dolt-data/toolshed_ledger
 
-cd /tmp/dolt-data/toolshed_registry && dolt init && dolt sql < /path/to/toolshed/schema/registry/001_init.sql
-cd /tmp/dolt-data/toolshed_ledger && dolt init && dolt sql < /path/to/toolshed/schema/ledger/001_init.sql
+cd /tmp/dolt-data/toolshed_registry && dolt init \
+  && dolt sql < /path/to/toolshed/schema/registry/001_init.sql \
+  && dolt sql < /path/to/toolshed/schema/registry/002_embeddings.sql \
+  && dolt sql < /path/to/toolshed/schema/registry/003_upvote_constraints.sql \
+  && dolt sql < /path/to/toolshed/schema/registry/seed.sql
 
-# Start the SQL server
+cd /tmp/dolt-data/toolshed_ledger && dolt init \
+  && dolt sql < /path/to/toolshed/schema/ledger/001_init.sql
+
 dolt sql-server --host 0.0.0.0 --port 3306 --data-dir /tmp/dolt-data
 ```
+
+</details>
 
 2. **Start the SSH server:**
 
@@ -173,20 +194,22 @@ The Docker build handles all native dependencies automatically — `libtokenizer
 ```
 toolshed/
 ├── cmd/
-│   ├── ssh/          # SSH server entrypoint
-│   └── wordcount/    # Example tool provider
+│   ├── ssh/              # SSH server entrypoint
+│   └── wordcount/        # Example tool provider
 ├── deploy/
-│   ├── Dockerfile    # Multi-stage build for Fly.io
-│   └── start.sh      # Container entrypoint (Dolt + SSH)
+│   ├── Dockerfile        # Multi-stage build for Fly.io
+│   └── start.sh          # Container entrypoint (Dolt + SSH)
 ├── internal/
-│   ├── core/         # Domain types, YAML parsing, content hashing
-│   ├── crawl/        # .well-known/toolshed.yaml crawler
-│   ├── dolt/         # Registry & ledger queries
-│   ├── embeddings/   # ONNX embedder, cosine similarity
-│   └── ssh/          # SSH server, commands, TUI, rate limiting
+│   ├── core/             # Domain types, YAML parsing, content hashing
+│   ├── crawl/            # .well-known/toolshed.yaml crawler
+│   ├── dolt/             # Registry & ledger queries
+│   ├── embeddings/       # ONNX embedder, cosine similarity
+│   └── ssh/              # SSH server, commands, TUI, rate limiting
 ├── schema/
-│   ├── registry/     # Dolt DDL for the shared registry
-│   └── ledger/       # Dolt DDL for the local ledger
-├── public/           # Static website served on port 8080
-└── scripts/          # Dev utilities
+│   ├── registry/         # Dolt DDL for the shared registry
+│   └── ledger/           # Dolt DDL for the local ledger
+├── public/               # Static website served on port 8080
+├── scripts/              # Dev utilities
+├── docker-compose.yml    # Local Dolt dev environment
+└── fly.toml              # Fly.io deployment config
 ```
